@@ -1,0 +1,2 @@
+PASS: syntax, relative URL rejection, text-only rendering, tree highlight, compare, file-content loading (mock DOM; NOT browser proof)
+Browser verification blocked: file: unsupported protocol; http://127.0.0.1 static route navigation blocked by policy. No rendered screenshots/GIF created; no alternative proxy or direct browser bypass used.

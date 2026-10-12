@@ -16,3 +16,5 @@ jobs:
       - run: cargo +stable fmt --check
       - run: cargo +stable clippy --all-targets -- -D warnings
       - run: cargo +stable test
+      - name: Check visualizer logic (mock DOM, not rendered browser proof)
+        run: node scripts/check-viz.cjs site/viz/index.html

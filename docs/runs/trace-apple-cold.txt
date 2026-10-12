@@ -1,0 +1,26 @@
+;; TRACE:
+;;   [.] c.root-servers.net. (192.33.4.12) www.apple.com. A -> referral to com. (13 NS, 26 glue)  33.4ms
+;;   [com.] e.gtld-servers.net. (192.12.94.30) www.apple.com. A -> referral to apple.com. (4 NS, 8 glue)  33.6ms
+;;   [apple.com.] c.ns.apple.com. (204.19.119.1) www.apple.com. A -> CNAME www-apple-com.v.aaplimg.com.  15.8ms
+;;   CNAME www.apple.com. -> www-apple-com.v.aaplimg.com.
+;;   [com.] j.gtld-servers.net. (192.48.79.30) www-apple-com.v.aaplimg.com. A -> referral to aaplimg.com. (4 NS, 8 glue)  228.2ms
+;;   [aaplimg.com.] b.ns.apple.com. (17.253.207.1) www-apple-com.v.aaplimg.com. A -> referral to v.aaplimg.com. (4 NS, 0 glue)  16.9ms
+;;   glueless delegation for v.aaplimg.com.: resolving v1.gslb.aaplimg.com. A
+;;     [aaplimg.com.] a.ns.apple.com. (17.253.200.1) v1.gslb.aaplimg.com. A -> ANSWER 17.253.201.9  13.6ms
+;;   [v.aaplimg.com.] v1.gslb.aaplimg.com. (17.253.201.9) www-apple-com.v.aaplimg.com. A -> CNAME www.apple.com.edgekey.net.  14.0ms
+;;   CNAME www-apple-com.v.aaplimg.com. -> www.apple.com.edgekey.net.
+;;   [.] j.root-servers.net. (192.58.128.30) www.apple.com.edgekey.net. A -> referral to net. (13 NS, 26 glue)  65.9ms
+;;   [net.] g.gtld-servers.net. (192.42.93.30) www.apple.com.edgekey.net. A -> referral to edgekey.net. (8 NS, 16 glue)  62.0ms
+;;   [edgekey.net.] a18-65.akam.net. (95.101.36.65) www.apple.com.edgekey.net. A -> CNAME e6858.dsce9.akamaiedge.net.  17.8ms
+;;   CNAME www.apple.com.edgekey.net. -> e6858.dsce9.akamaiedge.net.
+;;   [net.] i.gtld-servers.net. (192.43.172.30) e6858.dsce9.akamaiedge.net. A -> referral to akamaiedge.net. (8 NS, 9 glue)  63.2ms
+;;   [akamaiedge.net.] a12-192.akamaiedge.net. (184.26.160.192) e6858.dsce9.akamaiedge.net. A -> referral to dsce9.akamaiedge.net. (8 NS, 9 glue)  16.2ms
+;;   [dsce9.akamaiedge.net.] n6dsce9.akamaiedge.net. (23.208.96.80) e6858.dsce9.akamaiedge.net. A -> ANSWER 184.28.148.249  13.2ms
+;; QUESTION: www.apple.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.apple.com. 300 IN CNAME www-apple-com.v.aaplimg.com.
+www-apple-com.v.aaplimg.com. 300 IN CNAME www.apple.com.edgekey.net.
+www.apple.com.edgekey.net. 300 IN CNAME e6858.dsce9.akamaiedge.net.
+e6858.dsce9.akamaiedge.net. 20 IN A 184.28.148.249
+;; 13 upstream queries, 595.9 ms

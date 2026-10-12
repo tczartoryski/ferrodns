@@ -1,0 +1,7 @@
+<output-dir>/index.html
+;; QUESTION: example.com. IN A
+;; status: NOERROR
+;; ANSWER:
+example.com. 300 IN A 104.20.23.154
+example.com. 300 IN A 172.66.147.243
+;; 3 upstream queries, 115.2 ms

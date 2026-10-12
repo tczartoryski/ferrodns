@@ -7,4 +7,4 @@
 - Task A: docs/specs/trace-json.md, medium reasoning.
 - Task B: docs/specs/viz.md, low reasoning.
 - Task C: docs/specs/site-shell.md, low reasoning.
-- Use one plan approval and no more than two fix rounds per task, each in its own T3 Code thread and worktree.
+- Use one plan approval and no more than two fix rounds per task, each in its own Codex CLI session and worktree (user-authorized substitution).

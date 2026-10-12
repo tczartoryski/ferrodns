@@ -1,0 +1,1 @@
+simulated TCP fallback: 1.1876250000000002 ms, 3 upstream exchanges

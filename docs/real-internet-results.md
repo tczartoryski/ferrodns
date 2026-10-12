@@ -60,3 +60,7 @@ TC and no answer records; the TCP retry returned 17 answers without TC.
 Hickory DNS and Unbound are existing relevant projects (their GitHub pages
 responded successfully). Neither fits the explicitly requested custom
 zero-dependency resolver and hand-written trace/UI exercise; no library added.
+
+## Structured trace follow-up
+
+See [trace-recordings.md](trace-recordings.md) for the new matched cold/warm pair and public JSON sample evidence. These measurements are separate from the original 14-question sweep.

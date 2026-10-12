@@ -1,0 +1,5 @@
+;; QUESTION: thisdoesnotexist-ferrodns-test.com. IN A
+;; status: NXDOMAIN
+;; AUTHORITY:
+com. 900 IN SOA a.gtld-servers.net. nstld.verisign-grs.com. 1791832369 1800 900 604800 900
+;; 2 upstream queries, 50.7 ms

@@ -7,9 +7,9 @@ A recursive DNS resolver from scratch in Rust — root to answer, standard libra
 ![zero dependencies](https://img.shields.io/badge/dependencies-zero-teal)
 ![tested Rust](https://img.shields.io/badge/tested_Rust-1.99.0-orange)
 
-**Work in progress:** the visualizer is specified but not implemented.
-There is no live demo, GIF or release yet. The repository remains private
-until the required publication checks pass.
+**Private release candidate:** structured traces and the self-contained visualizer
+are implemented. There is no live Pages deployment, rendered-browser proof,
+GIF or release yet; publication gates remain open.
 
 ## What happens when you look up a name
 
@@ -38,7 +38,7 @@ dig @127.0.0.1 -p 55353 github.com A
 dig @127.0.0.1 -p 15353 www.example.com A
 ```
 
-`viz` and `--trace-json` are not available yet; see the [trace spec](docs/specs/trace-json.md).
+Trace a lookup with `query www.apple.com A --trace-json apple.json`, export a standalone page with `viz www.apple.com A --out ferrodns-viz`, or record server requests with `serve --listen 127.0.0.1:55353 --trace-dir traces`. Run `viz` from the repository root so it can read `site/viz/index.html`.
 No system DNS changes are needed. Edition 2024 requires Rust 1.85 or newer;
 this run tested stable 1.99.0, not the minimum supported version.
 
@@ -62,10 +62,13 @@ this run tested stable 1.99.0, not the minimum supported version.
 
 ## Visualizer
 
-Planned: a self-contained waterfall, delegation tree and cold/warm comparison.
-Specs: [trace JSON](docs/specs/trace-json.md), [visualizer](docs/specs/viz.md),
-[site shell](docs/specs/site-shell.md). No screenshots are presented as proof
-of an implementation that does not exist.
+Open [site/viz/index.html](site/viz/index.html) locally and choose or drop a JSON
+trace. Generated viz pages embed JSON without requiring fetch. Static HTTP(S)
+deployments support relative sample URLs. Waterfall, delegation tree, node-to-row
+highlights and comparison have dependency-free logic tests. Actual browser
+rendering and responsive/light/dark interaction remain unverified: file and
+local static navigation were blocked by browser policy. No fabricated screenshots
+or GIF. See the [gallery](site/gallery/index.html) and [measured trace recordings](docs/trace-recordings.md). The matched Apple pair took 487.240 ms cold (13 upstream exchanges) and 0.057 ms warm (zero).
 
 ## Real-internet results
 
@@ -114,7 +117,7 @@ server → resolver ⇄ cache
 
 ## Testing
 
-38 tests passed locally: 22 unit and 16 integration tests.
+47 tests passed locally: 24 library unit, 1 CLI unit and 22 integration tests. See [recorded output](docs/runs/trace-tests.txt).
 The simulated internet covers delegation, glueless NS, CNAME loops, negative
 caching, failover, UDP truncation/TCP, poisoning and concurrent clients.
 Fuzz-style parser tests require random and mutated packets to fail without panic.

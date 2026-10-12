@@ -19,13 +19,21 @@
   <main>
     <h1>Trace gallery</h1>
     <p>Explore real DNS lookups through the resolver's trace visualizer.</p>
-    <div class="pending">
-      <h2>Samples pending</h2>
-      <p>No sample traces are published here yet. The project owner will add recorded traces and visualizer links when they are available.</p>
-    </div>
+    <section>
+      <h2>Recorded 2026-10-12</h2>
+      <ul>
+        <li><a href="../viz/?trace=samples/apple-cold.json">Apple cold — real internet, CNAMEs and glueless delegation</a></li>
+        <li><a href="../viz/?trace=samples/apple-warm.json">Apple warm — same server cache, zero upstream exchanges</a></li>
+        <li><a href="../viz/?trace=samples/nxdomain.json">NXDOMAIN — real public-domain question</a></li>
+        <li><a href="../viz/?trace=samples/google-txt.json">Google TXT — real internet, UDP only in this run</a></li>
+        <li><a href="../viz/?trace=samples/simulated-tcp.json">TCP fallback — SIMULATED localhost network, not internet evidence</a></li>
+      </ul>
+      <p>Use HTTP(S) static hosting for sample links. For local files, choose these JSON files in the visualizer. Enable comparison and load the warm file beside the cold file.</p>
+      <p>No real timeout/failover or upstream TCP fallback was observed in these recordings. Browser rendering remains unverified because local navigation was blocked by policy.</p>
+    </section>
     <section aria-labelledby="planned-heading">
-      <h2 id="planned-heading">Planned recordings</h2>
-      <p>These are recording targets, not observed results.</p>
+      <h2 id="planned-heading">Recording categories</h2>
+      <p>Real cold, warm, glueless and NXDOMAIN evidence is above. Unobserved behaviors are not claimed.</p>
       <ul>
         <li><strong>Cold lookup:</strong> <code>www.apple.com</code> with an empty cache.</li>
         <li><strong>Warm lookup:</strong> the same name after its answer has been cached.</li>

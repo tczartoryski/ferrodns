@@ -1,0 +1,73 @@
+   Compiling ferrodns v0.1.0 (<repository>)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.76s
+     Running unittests src/lib.rs (target/debug/deps/ferrodns-a1ed08a99550b2ac)
+
+running 24 tests
+test cache::tests::glue_is_not_served_as_an_answer ... ok
+test cache::tests::delegation_finds_deepest_zone ... ok
+test cache::tests::glue_cannot_overwrite_answer ... ok
+test cache::tests::negative_ttl_uses_soa_minimum_and_rfc8020 ... ok
+test cache::tests::ttl_counts_down_and_expires ... ok
+test resolver::tests::cname_answer ... ok
+test resolver::tests::nodata_and_nxdomain ... ok
+test resolver::tests::servfail_is_lame ... ok
+test resolver::tests::referral_drops_out_of_bailiwick_glue ... ok
+test resolver::tests::sideways_referral_is_lame ... ok
+test resolver::tests::upward_referral_is_lame ... ok
+test trace::tests::utc_dates ... ok
+test trace::tests::json_strings_are_safe_in_html ... ok
+test wire::message::tests::compression_shrinks_message ... ok
+test wire::message::tests::roundtrip_full_message ... ok
+test wire::name::tests::rejects_pointer_loops_and_forward_pointers ... ok
+test wire::name::tests::parse_and_display ... ok
+test wire::name::tests::compression_roundtrip ... ok
+test wire::message::tests::truncation_sets_tc ... ok
+test wire::name::tests::subdomain_relationships ... ok
+test wire::message::tests::rejects_garbage_and_trailing_data ... ok
+test wire::message::tests::random_bytes_never_panic ... ok
+test cache::tests::eviction_bounds_size ... ok
+test wire::message::tests::mutated_messages_never_panic ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/main.rs (target/debug/deps/ferrodns-056c6719519dc1e3)
+
+running 1 test
+test tests::query_json_is_written_before_reporting_resolution_failure ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/simnet.rs (target/debug/deps/simnet-5c3b2365a1c7c211)
+
+running 22 tests
+test failed_tcp_fallback_has_null_transport ... ok
+test nxdomain_is_negatively_cached_including_names_below_it ... ok
+test follows_delegation_chain_from_the_root ... ok
+test nodata_and_empty_non_terminals ... ok
+test cname_loops_are_detected ... ok
+test ignores_out_of_bailiwick_poison ... ok
+test portable_sim_uses_only_localhost_and_isolates_servers ... ok
+test concurrent_clients_share_one_cache ... ok
+test second_query_is_served_from_cache ... ok
+test chases_cname_into_another_zone ... ok
+test resolves_glueless_delegations ... ok
+test trace_write_error_does_not_replace_resolution_result ... ok
+test servfail_and_refused_servers_are_skipped ... ok
+test structured_sim_lookup_matches_golden ... ok
+test work_per_request_is_bounded ... ok
+test structured_events_cover_cname_glueless_and_tcp ... ok
+test truncated_udp_falls_back_to_tcp ... ok
+test trace_directory_records_concurrent_client_failures_without_overwrites ... ok
+test serves_stub_clients_over_udp_and_tcp ... ok
+test fails_over_from_a_dead_nameserver_and_learns_to_avoid_it ... ok
+test failed_udp_exchange_has_null_transport ... ok
+test unreachable_roots_fail_cleanly ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+   Doc-tests ferrodns
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

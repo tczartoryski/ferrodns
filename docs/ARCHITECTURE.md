@@ -39,3 +39,7 @@ the full loopback range configured.
 
 The `sim` CLI exposes a recursive stub endpoint over the portable network;
 `demo` uses the same network in-process. No administrator rights are needed.
+
+## Structured traces
+
+src/trace.rs serializes events with std only and escapes HTML script delimiters. Resolver records one query event per upstream exchange, cache hits, CNAME and glueless branches. TCP duration includes the preceding UDP request. Failed exchange transport is unknown (null). Resolver-owned trace-directory writes use exclusive file creation; packet rejection before resolution creates no trace. The viz command reads site/viz/index.html from the repository root at runtime; distribute that asset alongside the binary for viz support.
