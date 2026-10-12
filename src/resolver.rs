@@ -5,11 +5,13 @@
 use crate::cache::{Cache, CacheConfig, Lookup, Trust};
 use crate::hints::{self, Hint};
 use crate::rng;
-use crate::transport::Transport;
+use crate::trace::{self, Event, Trace};
+use crate::transport::{Transport, TransportError};
 use crate::wire::{Edns, Message, Name, RClass, RData, RType, Record, rcode};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -33,6 +35,8 @@ pub struct Config {
     pub max_cname: usize,
     pub max_referrals: usize,
     pub cache: CacheConfig,
+    /// Trace each request reaching the resolver (pre-resolution packet rejections are excluded).
+    pub trace_dir: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -48,6 +52,7 @@ impl Default for Config {
             max_cname: 10,
             max_referrals: 20,
             cache: CacheConfig::default(),
+            trace_dir: None,
         }
     }
 }
@@ -120,13 +125,34 @@ pub enum Classified {
 /// Per-request state: work budget and optional trace.
 struct Ctx {
     budget: usize,
-    trace: Option<Vec<String>>,
+    trace: Option<Vec<Event>>,
+    start: Instant,
 }
 
 impl Ctx {
-    fn log(&mut self, depth: usize, msg: impl FnOnce() -> String) {
+    fn log(
+        &mut self,
+        kind: &'static str,
+        depth: usize,
+        name: &Name,
+        qtype: RType,
+        msg: impl FnOnce() -> String,
+    ) {
         if let Some(t) = self.trace.as_mut() {
-            t.push(format!("{}{}", "  ".repeat(depth), msg()));
+            t.push(Event {
+                t_ms: self.start.elapsed().as_secs_f64() * 1000.0,
+                dur_ms: 0.0,
+                depth,
+                kind,
+                zone: None,
+                server: None,
+                ip: None,
+                qname: name.to_string(),
+                qtype: qtype.to_string(),
+                transport: None,
+                outcome: None,
+                detail: msg(),
+            });
         }
     }
 }
@@ -179,13 +205,56 @@ impl Resolver {
         qtype: RType,
         trace: bool,
     ) -> (Result<Resolution, ResolveError>, Vec<String>) {
+        let (res, recorded) = self.resolve_recorded(name, qtype, trace);
+        let text = if trace {
+            recorded.events.iter().map(Event::text).collect()
+        } else {
+            vec![]
+        };
+        (res, text)
+    }
+
+    /// Record a structured trace, including failures, without repeating resolution.
+    pub fn resolve_with_trace(
+        &self,
+        name: &Name,
+        qtype: RType,
+    ) -> (Result<Resolution, ResolveError>, Trace) {
+        self.resolve_recorded(name, qtype, true)
+    }
+
+    fn resolve_recorded(
+        &self,
+        name: &Name,
+        qtype: RType,
+        record: bool,
+    ) -> (Result<Resolution, ResolveError>, Trace) {
         self.stats.client_queries.fetch_add(1, Ordering::Relaxed);
+        let started_at = trace::timestamp();
         let mut ctx = Ctx {
             budget: self.cfg.max_queries,
-            trace: trace.then(Vec::new),
+            trace: (record || self.cfg.trace_dir.is_some()).then(Vec::new),
+            start: Instant::now(),
         };
         let res = self.resolve_inner(name, qtype, &mut ctx, 0);
-        (res, ctx.trace.unwrap_or_default())
+        let trace = Trace {
+            name: name.to_string(),
+            qtype: qtype.to_string(),
+            started_at,
+            total_ms: ctx.start.elapsed().as_secs_f64() * 1000.0,
+            rcode: rcode::name(res.as_ref().map_or(rcode::SERVFAIL, |r| r.rcode)).into(),
+            answers: res
+                .as_ref()
+                .map(|r| r.answers.iter().map(ToString::to_string).collect())
+                .unwrap_or_default(),
+            events: ctx.trace.unwrap_or_default(),
+        };
+        if let Some(dir) = &self.cfg.trace_dir
+            && let Err(e) = trace.write_in_dir(dir)
+        {
+            eprintln!("trace-dir {}: {e}", dir.display());
+        }
+        (res, trace)
     }
 
     fn resolve_inner(
@@ -210,7 +279,9 @@ impl Resolver {
                 }
                 Step::Cname(rec) => {
                     let target = rec.target().cloned().expect("CNAME has a target");
-                    ctx.log(depth, || format!("CNAME {current} -> {target}"));
+                    ctx.log("cname", depth, &current, qtype, || {
+                        format!("CNAME {current} -> {target}")
+                    });
                     answers.push(rec);
                     if !seen.insert(target.clone()) {
                         return Err(ResolveError::CnameLoop);
@@ -250,7 +321,7 @@ impl Resolver {
             None => return None,
         };
         drop(cache);
-        ctx.log(depth, || {
+        ctx.log("cache_hit", depth, name, qtype, || {
             let what = match &step {
                 Step::Answer(r) => format!("{} record(s)", r.len()),
                 Step::Cname(_) => "CNAME".into(),
@@ -279,7 +350,7 @@ impl Resolver {
                 // A cached delegation whose addresses expired and can't be re-derived
                 // (in-zone NS without glue): back up to the parent and get fresh glue.
                 Err(ResolveError::NoServers(z)) if !z.is_root() => {
-                    ctx.log(depth, || {
+                    ctx.log("glueless", depth, name, qtype, || {
                         format!("no addresses for {z} nameservers; restarting from parent")
                     });
                     let parent = z.parent().unwrap_or_default();
@@ -354,7 +425,7 @@ impl Resolver {
                     // Needs glue from the parent; asking would loop.
                     continue;
                 }
-                ctx.log(depth, || {
+                ctx.log("glueless", depth, &ns, RType::A, || {
                     format!("glueless delegation for {zone}: resolving {ns} A")
                 });
                 match self.resolve_inner(&ns, RType::A, ctx, depth + 1) {
@@ -445,6 +516,7 @@ impl Resolver {
                 false,
                 Some(Edns::new(EDNS_UDP_SIZE)),
             );
+            let start = Instant::now();
             match self.transport.exchange(*addr, &q) {
                 Ok(x) => {
                     self.record_rtt(*addr, Some(x.rtt));
@@ -452,14 +524,29 @@ impl Resolver {
                         self.stats.tcp_fallbacks.fetch_add(1, Ordering::Relaxed);
                     }
                     let c = classify(&x.response, qname, qtype, zone);
-                    let ms = x.rtt.as_secs_f64() * 1000.0;
-                    let via = if x.tcp { " (TC, retried over TCP)" } else { "" };
-                    ctx.log(depth, || {
-                        format!(
-                            "[{zone}] {nsname} ({addr}) {qname} {qtype} -> {}  {ms:.1}ms{via}",
-                            describe(&c)
-                        )
-                    });
+                    if let Some(events) = ctx.trace.as_mut() {
+                        events.push(Event {
+                            t_ms: start.duration_since(ctx.start).as_secs_f64() * 1000.0,
+                            dur_ms: x.rtt.as_secs_f64() * 1000.0,
+                            depth,
+                            kind: "query",
+                            zone: Some(zone.to_string()),
+                            server: Some(nsname.to_string()),
+                            ip: Some(addr.to_string()),
+                            qname: qname.to_string(),
+                            qtype: qtype.to_string(),
+                            transport: Some(if x.tcp { "tcp" } else { "udp" }),
+                            outcome: Some(match &c {
+                                Classified::Answer(_) => "answer",
+                                Classified::Cname(_) => "cname",
+                                Classified::Referral { .. } => "referral",
+                                Classified::NxDomain(_) => "nxdomain",
+                                Classified::NoData(_) => "nodata",
+                                Classified::Lame(_) => "lame",
+                            }),
+                            detail: describe(&c),
+                        });
+                    }
                     if let Classified::Lame(_) = c {
                         self.stats.upstream_failures.fetch_add(1, Ordering::Relaxed);
                         continue;
@@ -470,9 +557,27 @@ impl Resolver {
                 Err(e) => {
                     self.record_rtt(*addr, None);
                     self.stats.upstream_failures.fetch_add(1, Ordering::Relaxed);
-                    ctx.log(depth, || {
-                        format!("[{zone}] {nsname} ({addr}) {qname} {qtype} -> {e}")
-                    });
+                    if let Some(events) = ctx.trace.as_mut() {
+                        events.push(Event {
+                            t_ms: start.duration_since(ctx.start).as_secs_f64() * 1000.0,
+                            dur_ms: start.elapsed().as_secs_f64() * 1000.0,
+                            depth,
+                            kind: "query",
+                            zone: Some(zone.to_string()),
+                            server: Some(nsname.to_string()),
+                            ip: Some(addr.to_string()),
+                            qname: qname.to_string(),
+                            qtype: qtype.to_string(),
+                            // TransportError does not expose whether TCP fallback was attempted.
+                            transport: None,
+                            outcome: Some(if matches!(e, TransportError::Timeout) {
+                                "timeout"
+                            } else {
+                                "error"
+                            }),
+                            detail: e.to_string(),
+                        });
+                    }
                 }
             }
         }
