@@ -3,6 +3,7 @@ use ferrodns::resolver::{Config, Resolution, Resolver};
 use ferrodns::wire::{Name, RType, rcode};
 use ferrodns::{server, sim};
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -13,12 +14,16 @@ ferrodns: a recursive DNS resolver from scratch
 
 USAGE:
     ferrodns query <name> [type] [--trace] [options]
-    ferrodns serve [--listen 127.0.0.1:5353] [options]
+    ferrodns viz <name> [type] [--out dir] [options]
+    ferrodns serve [--trace-dir dir] [--listen 127.0.0.1:5353] [options]
     ferrodns demo                     run against a simulated internet on loopback
     ferrodns sim [port]               just run the simulated internet (default port 15353)
 
 OPTIONS:
     --trace                 print every step of the resolution
+    --trace-json <file>     write query trace JSON, including resolution failures
+    --trace-dir <dir>       trace serve requests reaching resolution (not rejected packets)
+    --out <dir>             viz output directory (default ferrodns-viz)
     --ipv6                  also use IPv6 nameserver addresses
     --timeout-ms <ms>       per-query upstream timeout (default 1500)
     --upstream-port <port>  port to query nameservers on (default 53)
@@ -29,6 +34,8 @@ struct Opts {
     positional: Vec<String>,
     trace: bool,
     listen: SocketAddr,
+    trace_json: Option<PathBuf>,
+    out: Option<PathBuf>,
     cfg: Config,
 }
 
@@ -36,6 +43,8 @@ fn parse_args(args: &[String]) -> Result<Opts, String> {
     let mut o = Opts {
         positional: vec![],
         trace: false,
+        trace_json: None,
+        out: None,
         listen: "127.0.0.1:5353".parse().unwrap(),
         cfg: Config::default(),
     };
@@ -45,6 +54,9 @@ fn parse_args(args: &[String]) -> Result<Opts, String> {
         let mut val = || it.next().cloned().ok_or(format!("{a} needs a value"));
         match a.as_str() {
             "--trace" => o.trace = true,
+            "--trace-json" => o.trace_json = Some(val()?.into()),
+            "--trace-dir" => o.cfg.trace_dir = Some(val()?.into()),
+            "--out" => o.out = Some(val()?.into()),
             "--ipv6" => o.cfg.ipv6 = true,
             "--listen" => o.listen = val()?.parse().map_err(|e| format!("--listen: {e}"))?,
             "--timeout-ms" => {
@@ -99,11 +111,58 @@ fn print_resolution(name: &Name, qtype: RType, res: &Resolution, elapsed: Durati
 }
 
 fn query(resolver: &Resolver, name: &str, qtype: &str, trace: bool) -> Result<(), String> {
+    query_output(resolver, name, qtype, trace, None, None)
+}
+
+fn query_output(
+    resolver: &Resolver,
+    name: &str,
+    qtype: &str,
+    trace: bool,
+    json_path: Option<&Path>,
+    viz_dir: Option<&Path>,
+) -> Result<(), String> {
+    // Read the template before querying; Task B supplies this runtime asset.
+    let template = if viz_dir.is_some() {
+        Some(
+            std::fs::read_to_string("site/viz/index.html")
+                .map_err(|e| format!("site/viz/index.html: {e}"))?,
+        )
+    } else {
+        None
+    };
     let name: Name = name.parse().map_err(|e| format!("{e}"))?;
     let qtype: RType = qtype.parse()?;
     let before = resolver.stats.upstream_queries.load(Ordering::Relaxed);
     let start = Instant::now();
-    let (res, steps) = resolver.resolve_traced(&name, qtype, trace);
+    let (res, steps) = if json_path.is_some() || viz_dir.is_some() {
+        let (res, recorded) = resolver.resolve_with_trace(&name, qtype);
+        if let Some(path) = json_path {
+            std::fs::write(path, recorded.to_json())
+                .map_err(|e| format!("trace-json {}: {e}", path.display()))?;
+        }
+        if let (Some(dir), Some(template)) = (viz_dir, template) {
+            std::fs::create_dir_all(dir).map_err(|e| format!("viz {}: {e}", dir.display()))?;
+            let path = dir.join("index.html");
+            std::fs::write(&path, recorded.embed_html(&template))
+                .map_err(|e| format!("viz {}: {e}", path.display()))?;
+            println!("{}", path.display());
+        }
+        (
+            res,
+            if trace {
+                recorded
+                    .events
+                    .iter()
+                    .map(ferrodns::trace::Event::text)
+                    .collect()
+            } else {
+                vec![]
+            },
+        )
+    } else {
+        resolver.resolve_traced(&name, qtype, trace)
+    };
     let elapsed = start.elapsed();
     let upstream = resolver.stats.upstream_queries.load(Ordering::Relaxed) - before;
     if trace {
@@ -214,8 +273,15 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if (opts.trace_json.is_some() && cmd != "query")
+        || (opts.cfg.trace_dir.is_some() && cmd != "serve")
+        || (opts.out.is_some() && cmd != "viz")
+    {
+        eprintln!("--trace-json requires query; --trace-dir requires serve; --out requires viz");
+        return ExitCode::from(2);
+    }
     let result = match cmd.as_str() {
-        "query" => {
+        "query" | "viz" => {
             let name = opts.positional.first().cloned().unwrap_or_default();
             let qtype = opts
                 .positional
@@ -226,10 +292,24 @@ fn main() -> ExitCode {
                 Err("query needs a name".to_string())
             } else {
                 let resolver = Resolver::new(opts.cfg);
-                query(&resolver, &name, &qtype, opts.trace)
+                let out = opts.out.unwrap_or_else(|| PathBuf::from("ferrodns-viz"));
+                query_output(
+                    &resolver,
+                    &name,
+                    &qtype,
+                    opts.trace,
+                    opts.trace_json.as_deref(),
+                    (cmd == "viz").then_some(out.as_path()),
+                )
             }
         }
         "serve" => {
+            if let Some(dir) = &opts.cfg.trace_dir
+                && let Err(e) = std::fs::create_dir_all(dir)
+            {
+                eprintln!("trace-dir {}: {e}", dir.display());
+                return ExitCode::FAILURE;
+            }
             let resolver = Arc::new(Resolver::new(opts.cfg));
             eprintln!("ferrodns listening on {} (udp+tcp)", opts.listen);
             server::serve(resolver, opts.listen).map_err(|e| format!("serve: {e}"))
@@ -272,5 +352,32 @@ fn main() -> ExitCode {
             eprintln!("{e}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_json_is_written_before_reporting_resolution_failure() {
+        let path = std::env::temp_dir().join(format!(
+            "ferrodns-query-failure-{}.json",
+            std::process::id()
+        ));
+        let resolver = Resolver::new(Config {
+            max_queries: 0,
+            ..Config::default()
+        });
+        let result = query_output(&resolver, "example.com", "A", true, Some(&path), None);
+        assert_eq!(
+            result,
+            Err("SERVFAIL: upstream query budget exhausted".into())
+        );
+        let json = std::fs::read_to_string(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert!(json.contains("\"rcode\":\"SERVFAIL\""));
+        assert!(json.contains("\"name\":\"example.com.\""));
+        assert_eq!(resolver.stats.client_queries.load(Ordering::Relaxed), 1);
     }
 }

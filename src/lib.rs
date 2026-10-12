@@ -7,5 +7,6 @@ pub mod resolver;
 pub mod rng;
 pub mod server;
 pub mod sim;
+pub mod trace;
 pub mod transport;
 pub mod wire;
