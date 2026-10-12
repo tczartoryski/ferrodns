@@ -170,8 +170,14 @@ impl Trace {
             "<script id=\"trace\" type=\"application/json\">{}</script>\n",
             self.to_json()
         );
-        // Task B may include an empty trace element. Replace it rather than leave duplicate IDs.
-        let mut template = template.to_owned();
+        // Standalone exports use the embedded trace and have no live backend assets.
+        let mut template = template.replace("<script src=\"live.js\"></script>", "");
+        if let Some(start) = template.find("<form id=\"live-form\"")
+            && let Some(end) = template[start..].find("</form>")
+        {
+            template.replace_range(start..start + end + "</form>".len(), "");
+        }
+        // Replace any empty trace element rather than leave duplicate IDs.
         let mut search = 0;
         while let Some(offset) = template[search..].to_ascii_lowercase().find("<script") {
             let start = search + offset;
@@ -276,6 +282,10 @@ mod tests {
             answers: vec!["</SCRIPT>".into()],
             events: vec![],
         };
+        let offline = trace.embed_html(include_str!("../site/viz/index.html"));
+        assert!(!offline.contains("src=\"live.js\""));
+        assert!(!offline.contains("id=\"live-form\""));
+        assert!(offline.contains("<script id=\"trace\""));
         let html = trace.embed_html("<html><head><script>viewer()</script></head></html>");
         assert_eq!(html.matches("id=\"trace\"").count(), 1);
         assert_eq!(html.matches("</script>").count(), 2);

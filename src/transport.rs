@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub enum TransportError {
     Timeout,
+    Budget,
     Policy,
     Cancelled,
     Io(io::Error),
@@ -22,6 +23,7 @@ pub enum TransportError {
 impl fmt::Display for TransportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            TransportError::Budget => write!(f, "upstream query budget exhausted"),
             TransportError::Policy => write!(f, "public endpoint policy rejected upstream"),
             TransportError::Cancelled => write!(f, "cancelled"),
             TransportError::Timeout => write!(f, "timeout"),
@@ -82,10 +84,26 @@ impl Transport {
         query: &Message,
         control: Option<&Control>,
     ) -> Result<Exchange, TransportError> {
+        self.exchange_budget(server, query, control, None)
+    }
+
+    pub(crate) fn exchange_budget(
+        &self,
+        server: IpAddr,
+        query: &Message,
+        control: Option<&Control>,
+        remaining: Option<&mut usize>,
+    ) -> Result<Exchange, TransportError> {
         self.gate(server, control)?;
         let start = Instant::now();
         let response = self.udp(server, query, control)?;
         if response.header.tc {
+            if let Some(remaining) = remaining {
+                if *remaining == 0 {
+                    return Err(TransportError::Budget);
+                }
+                *remaining -= 1;
+            }
             let response = self.tcp(server, query, control)?;
             return Ok(Exchange {
                 response,

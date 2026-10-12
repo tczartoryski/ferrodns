@@ -100,3 +100,97 @@ fn cancellation_reaches_waiting_udp_and_stops_further_queries() {
     ));
     assert!(start.elapsed() < Duration::from_secs(1));
 }
+
+#[test]
+fn live_budget_counts_udp_and_tcp_attempts_including_failed_fallbacks() {
+    use std::io::{Read, Write};
+    use std::sync::atomic::Ordering;
+    for budget in [1usize, 2, 32] {
+        let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let endpoint = udp.local_addr().unwrap();
+        let tcp = std::net::TcpListener::bind(endpoint).unwrap();
+        tcp.set_nonblocking(true).unwrap();
+        udp.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let upstream = std::thread::spawn(move || {
+            let mut attempts = 0;
+            for n in 0..budget.div_ceil(2) {
+                let mut buf = [0; 4096];
+                let (len, peer) = udp.recv_from(&mut buf).unwrap();
+                attempts += 1;
+                let mut reply = Message::parse(&buf[..len]).unwrap();
+                reply.header.qr = true;
+                reply.header.tc = true;
+                udp.send_to(&reply.to_bytes().unwrap(), peer).unwrap();
+                if n * 2 + 1 < budget {
+                    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+                    let mut stream = loop {
+                        match tcp.accept() {
+                            Ok((s, _)) => break s,
+                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                assert!(std::time::Instant::now() < deadline);
+                                std::thread::sleep(Duration::from_millis(1));
+                            }
+                            Err(e) => panic!("{e}"),
+                        }
+                    };
+                    attempts += 1;
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(3)))
+                        .unwrap();
+                    let mut len = [0; 2];
+                    stream.read_exact(&mut len).unwrap();
+                    let mut query = vec![0; u16::from_be_bytes(len) as usize];
+                    stream.read_exact(&mut query).unwrap();
+                    reply.header.tc = false;
+                    reply.header.id = reply.header.id.wrapping_add(1);
+                    let bytes = reply.to_bytes().unwrap();
+                    stream
+                        .write_all(&(bytes.len() as u16).to_be_bytes())
+                        .unwrap();
+                    stream.write_all(&bytes).unwrap();
+                }
+            }
+            (attempts, udp, tcp)
+        });
+        let ip = endpoint.ip();
+        let resolver = Resolver::new(Config {
+            roots: (0..33)
+                .map(|_| Hint {
+                    name: "ns.example.com".parse().unwrap(),
+                    addr: ip,
+                })
+                .collect(),
+            endpoints: HashMap::from([(ip, endpoint)]),
+            max_queries: budget,
+            timeout: Duration::from_secs(2),
+            ..Config::default()
+        });
+        let result = resolver
+            .resolve_live(
+                &"example.com".parse().unwrap(),
+                RType::A,
+                Control::new(false, Duration::from_secs(10)),
+                Arc::new(|_| true),
+            )
+            .0;
+        assert!(matches!(
+            result,
+            Err(ferrodns::resolver::ResolveError::QueryBudgetExhausted)
+        ));
+        let (attempts, udp, tcp) = upstream.join().unwrap();
+        assert_eq!(attempts, budget);
+        assert_eq!(
+            resolver.stats.upstream_queries.load(Ordering::Relaxed),
+            budget as u64
+        );
+        udp.set_nonblocking(true).unwrap();
+        assert_eq!(
+            udp.recv(&mut [0; 4096]).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        assert_eq!(
+            tcp.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+    }
+}

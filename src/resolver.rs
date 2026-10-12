@@ -620,10 +620,18 @@ impl Resolver {
                 });
                 ctx.check(None)?;
             }
-            match self
-                .transport
-                .exchange_control(*addr, &q, ctx.control.as_ref())
-            {
+            let before = ctx.budget;
+            let result = self.transport.exchange_budget(
+                *addr,
+                &q,
+                ctx.control.as_ref(),
+                ctx.control.as_ref().map(|_| &mut ctx.budget),
+            );
+            self.stats
+                .upstream_queries
+                .fetch_add((before - ctx.budget) as u64, Ordering::Relaxed);
+            match result {
+                Err(TransportError::Budget) => return Err(ResolveError::QueryBudgetExhausted),
                 Ok(x) => {
                     self.record_rtt(*addr, Some(x.rtt), ctx.public());
                     if x.tcp {

@@ -21,9 +21,8 @@ is rejected on both routes. OPTIONS, request bodies, transfer encoding,
 unknown/duplicate parameters, and methods other than GET are rejected.
 Requests require HTTP/1.1 and Host. HTTP is connection-close, without pooling.
 
-Limits: 8 KiB headers; absolute 3-second request read; 1-second socket write
-wait; 16 connections; 4 active resolutions; 15-second resolution deadline;
-32 upstream queries; 12 referrals per step; 8 CNAME hops; glueless depth 4;
+Limits: 8 KiB headers; absolute 3-second request read; absolute 1-second deadline per HTTP/SSE write; 16 connections; 4 active resolutions; 15-second resolution deadline;
+32 live network attempts (UDP and TCP fallback each spend one); 12 referrals per step; 8 CNAME hops; glueless depth 4;
 128 queued events and 512 events per resolution. Queue saturation or receiver
 disconnect cancels work. UDP/TCP waits check cancellation at most every 50ms
 (TCP connection attempts at most 100ms); TCP frame reads use an absolute
@@ -31,12 +30,11 @@ per-exchange and request deadline, even for trickled bytes. Final displayed
 answers are capped at 64; event details and answer strings at 2,048 bytes.
 The browser caps records at 64 KiB, total stream at 1 MiB and timeout at 18s.
 
-Global allowance is 30 accepted requests per fixed minute window, per socket
-peer 6, including health probes. Rejected parses do not spend this allowance
-but remain subject to the connection cap and read deadline. The bounded peer
-map uses at most 30 entries in a window (hard cap 1,024). Health checks and
-users sharing a reverse proxy share the conservative peer allowance; health
-may return 429. Arbitrary X-Forwarded-For is ignored. No proxy trust knob.
+Global DNS allowance is 30 accepted resolve requests per fixed minute window,
+per socket peer 6. Health probes bypass this allowance, including when it is
+exhausted, but remain subject to the connection cap, header cap and read
+deadline. Rejected parses do not spend the DNS allowance. The bounded peer
+map uses at most 30 entries in a window (hard cap 1,024). Users sharing a reverse proxy share the conservative DNS peer allowance. Arbitrary X-Forwarded-For is ignored. No proxy trust knob.
 Live cache has 256 entries and RTT table at most 1,024 addresses.
 
 Hostnames must be public ASCII names with multiple labels. Every chased
@@ -180,7 +178,46 @@ if necessary. It overrides only its temporary served config; the checked-in
 config remains null. This is browser rendering proof with mocked DNS, not
 remote host recursion proof. No binary assets are read or generated.
 
-Current session: socket creation is denied (`EPERM`), so full cargo/socket
-and real browser checks require owner/CI execution in a socket-enabled
-environment. Container build/run and host outbound/SSE/dig proof remain
-unverified. See `docs/live-verification.md` for the final gate record.
+Actual backend browser mode (owner-run, internet required):
+
+```sh
+node scripts/check-live-browser.cjs --run-backend
+# Or start ferrodns-live yourself, then:
+node scripts/check-live-browser.cjs --actual-backend http://127.0.0.1:8080
+```
+
+This preserves the mocked lifecycle checks and adds exactly two public A
+queries, at least 12 seconds apart: example.com at desktop 1280px and
+www.apple.com at mobile 390px. Actual mode serves the test page at HTTP
+loopback. Its served copy of live.js substitutes only the fetch destination
+with a same-origin loopback relay after unchanged HTTPS-only config validation.
+The temporary config still uses a synthetic HTTPS endpoint; the checked-in
+endpoint remains null and live.js is not edited. Actual mode clears the CDP
+Origin override for browser requests; the relay supplies the explicit Pages
+Origin to the backend. The relay flushes
+response headers and pipes SSE with native backpressure, without collecting
+or fulfilling a complete response through CDP. Browser disconnect destroys
+the upstream request; the relay never retries. The real SSE reaches the
+browser's fetch reader; assertions require a pending query row before the successful terminal DOM,
+answers and no viewport overflow. JSON output records first pending and final
+DOM timestamps in milliseconds from submission, plus the real answers.
+Network.loadingFailed diagnostics include request URL, browser error and any
+blocked/CORS reason. No browser security flags, public CORS policy or published
+config changes are needed. This local relay path tests incremental backend/UI
+behavior; it does not prove the production HTTPS browser-to-backend path.
+Chrome exit is awaited before profile removal with retries.
+Set `CARGO` to the cargo executable if it is not on PATH. The script stops
+its own backend process group on exit; an externally started backend is
+left running.
+
+The owner reports all 67 Rust tests, formatting, clippy, release build, mock
+suites and real Chromium mocked mobile/sample checks passed after round1
+(`/tmp/ferrodns-recovery-verification.log`). The previous actual-backend CDP
+HTTPS-to-loopback rewrite failed with browser `Failed to fetch`. Round2 replaces
+that path with the relay described above. Independent recovery verification
+passed actual Chromium desktop/mobile incremental rendering: example.com
+pending at 9.2ms, terminal at 136ms; www.apple.com pending at 7.2ms, terminal
+at 768.8ms. See `/tmp/ferrodns-recovery-browser.log`. This sandbox blocks socket creation (`EPERM`).
+Hosting remains account blocked; local success does not
+prove host outbound DNS. The Docker daemon is unavailable: container
+build/run is not verified. See `docs/live-verification.md` for details.

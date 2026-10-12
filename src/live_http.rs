@@ -161,6 +161,9 @@ impl Rates {
             peers: HashMap::new(),
         }
     }
+    fn allow_request(&mut self, request: &Request, peer: IpAddr, now: Instant) -> bool {
+        matches!(request, Request::Health) || self.allow(peer, now)
+    }
     pub fn allow(&mut self, peer: IpAddr, now: Instant) -> bool {
         if now.duration_since(self.since) >= Duration::from_secs(60) {
             self.since = now;
@@ -202,6 +205,41 @@ fn read_request(s: &mut TcpStream, timeout: Duration) -> io::Result<Vec<u8>> {
         }
     }
 }
+// Recompute the remaining absolute deadline before every partial write.
+fn write_deadline<W: Write>(
+    writer: &mut W,
+    mut bytes: &[u8],
+    deadline: Instant,
+    mut now: impl FnMut() -> Instant,
+    mut timeout: impl FnMut(&mut W, Duration) -> io::Result<()>,
+) -> io::Result<()> {
+    loop {
+        let left = deadline.saturating_duration_since(now());
+        if left.is_zero() {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        timeout(writer, left)?;
+        match writer.write(bytes) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(n) => bytes = &bytes[n..],
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        }
+    }
+}
+fn write_http(s: &mut TcpStream, bytes: &[u8]) -> io::Result<()> {
+    write_deadline(
+        s,
+        bytes,
+        Instant::now() + Duration::from_secs(1),
+        Instant::now,
+        |s, left| s.set_write_timeout(Some(left)),
+    )
+}
+
 fn response(s: &mut TcpStream, status: u16, body: &str) -> io::Result<()> {
     let reason = match status {
         200 => "OK",
@@ -214,15 +252,13 @@ fn response(s: &mut TcpStream, status: u16, body: &str) -> io::Result<()> {
         431 => "Request Header Fields Too Large",
         _ => "Service Unavailable",
     };
-    write!(
-        s,
+    write_http(s, format!(
         "HTTP/1.1 {status} {reason}\r\nAccess-Control-Allow-Origin: {ORIGIN}\r\nVary: Origin\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}",
         body.len()
-    )
+    ).as_bytes())
 }
 fn event(s: &mut TcpStream, name: &str, json: &str) -> io::Result<()> {
-    write!(s, "event: {name}\ndata: {json}\n\n")?;
-    s.flush()
+    write_http(s, format!("event: {name}\ndata: {json}\n\n").as_bytes())
 }
 
 pub fn serve(bind: SocketAddr) -> io::Result<()> {
@@ -263,7 +299,6 @@ fn handle(
     rates: Arc<Mutex<Rates>>,
     resolver: Arc<Resolver>,
 ) -> io::Result<()> {
-    s.set_write_timeout(Some(Duration::from_secs(1)))?;
     let bytes = match read_request(s, Duration::from_secs(3)) {
         Ok(b) => b,
         Err(_) => return response(s, 408, "Request timeout\n"),
@@ -276,7 +311,7 @@ fn handle(
     if !rates
         .lock()
         .unwrap()
-        .allow(s.peer_addr()?.ip(), Instant::now())
+        .allow_request(&request, s.peer_addr()?.ip(), Instant::now())
     {
         return response(s, 429, "Rate limit\n");
     }
@@ -288,10 +323,9 @@ fn handle(
     };
     let control = Control::new(true, Duration::from_secs(15));
     let _cancel = Cancel(control.clone());
-    write!(
-        s,
+    write_http(s, format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nAccess-Control-Allow-Origin: {ORIGIN}\r\nVary: Origin\r\nCache-Control: no-store\r\nX-Accel-Buffering: no\r\nConnection: close\r\n\r\n"
-    )?;
+    ).as_bytes())?;
     event(
         s,
         "started",
@@ -385,8 +419,7 @@ fn handle(
                     return Ok(());
                 }
                 if heartbeat.elapsed() >= Duration::from_secs(1) {
-                    s.write_all(b": heartbeat\n\n")?;
-                    s.flush()?;
+                    write_http(s, b": heartbeat\n\n")?;
                     heartbeat = Instant::now();
                 }
             }
@@ -399,6 +432,70 @@ mod tests {
     use super::*;
     fn req(path: &str, headers: &str) -> Vec<u8> {
         format!("GET {path} HTTP/1.1\r\nHost: localhost\r\n{headers}\r\n").into_bytes()
+    }
+    #[test]
+    fn health_never_spends_dns_allowance_even_when_exhausted() {
+        let now = Instant::now();
+        let peer = "127.0.0.1".parse().unwrap();
+        let mut rates = Rates::new(now);
+        for _ in 0..100 {
+            assert!(rates.allow_request(&Request::Health, peer, now));
+        }
+        assert_eq!(rates.global, 0);
+        assert!(rates.peers.is_empty());
+        for n in 1..=5 {
+            for _ in 0..6 {
+                assert!(rates.allow(IpAddr::from([127, 0, 0, n]), now));
+            }
+        }
+        assert!(rates.allow_request(&Request::Health, peer, now));
+        assert!(!rates.allow_request(
+            &Request::Resolve("example.com".parse().unwrap(), RType::A),
+            peer,
+            now
+        ));
+        assert_eq!(rates.global, 30);
+    }
+    #[test]
+    fn slow_partial_writer_deadline_cancels_and_releases_connection() {
+        use std::cell::Cell;
+        let start = Instant::now();
+        let elapsed = Cell::new(Duration::ZERO);
+        struct Trickle<'a>(&'a Cell<Duration>);
+        impl Write for Trickle<'_> {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                self.0.set(self.0.get() + Duration::from_millis(100));
+                Ok(1)
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                panic!("unbounded flush")
+            }
+        }
+        let connections = Slots::new(1);
+        let control = Control::new(true, Duration::from_secs(15));
+        let mut waits = Vec::new();
+        let result = {
+            let _connection = connections.acquire().unwrap();
+            let _cancel = Cancel(control.clone());
+            assert!(connections.acquire().is_none());
+            write_deadline(
+                &mut Trickle(&elapsed),
+                &[0; 100],
+                start + Duration::from_secs(1),
+                || start + elapsed.get(),
+                |_, left| {
+                    waits.push(left);
+                    Ok(())
+                },
+            )
+        };
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+        assert_eq!(elapsed.get(), Duration::from_secs(1));
+        assert_eq!(waits.len(), 10);
+        assert_eq!(waits[0], Duration::from_secs(1));
+        assert_eq!(waits[9], Duration::from_millis(100));
+        assert_eq!(control.status(), Err("cancelled"));
+        assert!(connections.acquire().is_some());
     }
     #[test]
     fn strict_http() {
