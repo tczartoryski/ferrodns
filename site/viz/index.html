@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FerroDNS trace visualizer</title>
+<style>
+:root{color-scheme:light dark;--bg:#f5f7fa;--panel:#fff;--ink:#182536;--muted:#586779;--line:#dbe2ea;--focus:#175ac6;--referral:#477bd4;--answer:#238559;--cname:#9254c8;--timeout:#cf6030;--cache_hit:#168f9b;--nxdomain:#c43c57}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif}header,main{padding:20px;max-width:1900px;margin:auto}h1{font-size:24px;margin:0 0 8px}p{color:var(--muted)}button,input{font:inherit}button{padding:7px 12px;cursor:pointer}header{border-bottom:1px solid var(--line)}.controls{display:flex;gap:18px;align-items:center;flex-wrap:wrap}.controls label{display:flex;gap:8px;align-items:center}input[type=file]{max-width:260px}.panels{display:grid;gap:18px}.panels.compare{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}.panel.drag{outline:3px dashed var(--focus)}h2{font:600 17px ui-monospace,monospace;overflow-wrap:anywhere}.summary{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.stat{padding:8px;background:var(--bg);border-radius:6px}.stat strong{display:block;font-size:18px}.views{display:grid;grid-template-columns:minmax(190px,30%) minmax(0,1fr);gap:14px}.tree{overflow:auto;max-height:640px}.waterfall{overflow:auto;max-height:640px}.row{display:grid;grid-template-columns: minmax(180px,40%) minmax(220px,1fr);min-height:34px;border-bottom:1px solid var(--line);align-items:center}.row.active{background:var(--bg);outline:2px solid var(--focus);outline-offset:-2px}.label{font:12px ui-monospace,monospace;padding:7px;overflow-wrap:anywhere}.track{height:28px;position:relative;background:repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),var(--line) calc(25% - 1px),var(--line) 25%)}.bar{position:absolute;top:7px;height:14px;border-radius:3px;min-width:3px}.axis{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;padding:5px}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin:12px 0}.swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}.error{color:var(--nxdomain);white-space:pre-wrap}.empty{padding:30px 10px;text-align:center}.answers{font:12px ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}svg{display:block}svg text{fill:var(--ink);font:12px ui-monospace,monospace}svg path{stroke:var(--line);fill:none;stroke-width:2}svg rect{fill:var(--bg);stroke:var(--line)}svg g:focus rect,svg g:hover rect{stroke:var(--focus);stroke-width:2}.tooltip{position:fixed;z-index:5;max-width:min(440px,90vw);background:var(--ink);color:var(--panel);padding:10px;border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;font:12px ui-monospace,monospace}.hidden{display:none!important}@media(prefers-color-scheme:dark){:root{--bg:#101722;--panel:#192330;--ink:#e4edf7;--muted:#acbbcf;--line:#354355;--focus:#8ab6ff}}@media(max-width:1000px){.panels.compare{grid-template-columns:1fr}.views{grid-template-columns:1fr}.tree{max-height:280px}}@media(max-width:600px){header,main{padding:12px}.panel{padding:10px}.controls{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<header><h1>FerroDNS trace visualizer</h1><p>Explore resolver timing and delegation. Open a JSON trace or drop one onto a panel.</p><div class="controls"><label>Primary trace <input id="primary" type="file" accept=".json,application/json"></label><label><input id="compare" type="checkbox"> Compare two traces</label><label id="secondary-control" class="hidden">Comparison trace <input id="secondary" type="file" accept=".json,application/json"></label></div></header>
+<main><div id="panels" class="panels"><section id="left" class="panel" aria-label="Primary trace"></section><section id="right" class="panel hidden" aria-label="Comparison trace"></section></div></main>
+<div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+<script>
+'use strict';
+(() => {
+ const $ = id => document.getElementById(id);
+ const colors = {referral:'var(--referral)',answer:'var(--answer)',cname:'var(--cname)',timeout:'var(--timeout)',cache_hit:'var(--cache_hit)',nxdomain:'var(--nxdomain)'};
+ const states = {left:null,right:null};
+ const generations = {left:0,right:0};
+ const string = value => value == null ? '' : String(value);
+ function el(tag, text, cls){const node=document.createElement(tag);if(text!==undefined)node.textContent=string(text);if(cls)node.className=cls;return node;}
+ function svg(tag, attrs={}, text){const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attrs))node.setAttribute(key,string(value));if(text!==undefined)node.textContent=string(text);return node;}
+ function outcome(e){return e.kind==='cache_hit'?'cache_hit':e.kind==='cname'?'cname':e.outcome || e.kind;}
+ function validate(raw){
+  if(!raw || typeof raw!=='object' || !Array.isArray(raw.events))throw Error('Trace must contain an events array.');
+  if(raw.events.length>10000)throw Error('Trace exceeds the 10,000 event limit.');
+  for(const [i,e] of raw.events.entries()){
+   if(!e || typeof e!=='object')throw Error('Invalid event '+i+'.');
+   for(const key of ['t_ms','dur_ms','depth'])if(e[key]!==undefined && (typeof e[key]!=='number'||!Number.isFinite(e[key])||e[key]<0))throw Error('Invalid '+key+' in event '+i+'.');
+  }
+  if(raw.total_ms!==undefined && (typeof raw.total_ms!=='number'||!Number.isFinite(raw.total_ms)||raw.total_ms<0))throw Error('Invalid total_ms.');
+  return raw;
+ }
+ function tip(event,text){const node=$('tooltip');node.textContent=text;node.classList.remove('hidden');const box=node.getBoundingClientRect();node.style.left=Math.max(8,Math.min(event.clientX+12,innerWidth-box.width-8))+'px';node.style.top=Math.max(8,Math.min(event.clientY+12,innerHeight-box.height-8))+'px';}
+ function hideTip(){$('tooltip').classList.add('hidden');}
+ function highlight(rows,indices,on){for(const index of indices)rows[index].classList.toggle('active',on);}
+ function render(id,trace){
+  const panel=$(id);panel.replaceChildren();hideTip();
+  if(!trace){panel.append(el('p','Drop a trace JSON file here, or use the file picker above.','empty'));return;}
+  const events=trace.events, question=trace.question || {};
+  panel.append(el('h2',string(question.name || 'DNS trace')+' '+string(question.type || '')));
+  const total=Math.max(trace.total_ms || 0,...events.map(e=>(e.t_ms||0)+(e.dur_ms||0))),scale=total || 1;
+  const queries=events.filter(e=>e.kind==='query');
+  const servers=new Set(queries.map(e=>string(e.ip || e.server)).filter(Boolean));
+  // Each TCP query event includes the UDP truncation and successful TCP retry.
+  const fallbacks=queries.filter(e=>string(e.transport).toLowerCase()==='tcp').length;
+  const summary=el('div',undefined,'summary');
+  for(const [name,value] of [['Total ms',total.toFixed(2)],['Upstream queries',queries.length],['Servers contacted',servers.size],['TCP fallbacks',fallbacks],['Timeouts',events.filter(e=>e.outcome==='timeout').length]]){const stat=el('div',undefined,'stat');stat.append(el('strong',value),el('span',name));summary.append(stat);}panel.append(summary);
+  const legend=el('div',undefined,'legend');for(const [name,color] of Object.entries(colors)){const item=el('span');const dot=el('span',undefined,'swatch');dot.style.background=color;item.append(dot,document.createTextNode(name.replace('_',' ')));legend.append(item);}panel.append(legend);
+  const views=el('div',undefined,'views'), tree=el('div',undefined,'tree'), waterfall=el('div',undefined,'waterfall');tree.append(el('h3','Delegation tree'));waterfall.append(el('h3','Waterfall'));
+  const axis=el('div',undefined,'row');axis.append(el('span','Zone → server (IP)','label'));const ticks=el('div',undefined,'axis');for(const fraction of [0,.25,.5,.75,1])ticks.append(el('span',(total*fraction).toFixed(1)+' ms'));axis.append(ticks);waterfall.append(axis);
+  const rows=[];
+  events.forEach((e,i)=>{const row=el('div',undefined,'row');row.tabIndex=0;const label=el('span',string(e.zone || e.qname || '.')+' → '+string(e.server || e.kind || 'event')+(e.ip?' ('+string(e.ip)+')':''),'label');label.style.paddingLeft=(7+Math.min(e.depth||0,20)*12)+'px';const track=el('div',undefined,'track'),bar=el('div',undefined,'bar');bar.style.left=((e.t_ms||0)/scale*100)+'%';bar.style.width=((e.dur_ms||0)/scale*100)+'%';bar.style.background=colors[outcome(e)] || 'var(--muted)';track.append(bar);row.append(label,track);const detail=[e.detail, 'Start: '+(e.t_ms||0)+' ms · Duration: '+(e.dur_ms||0)+' ms',outcome(e),e.transport].filter(Boolean).map(string).join('\n');row.title=detail;row.addEventListener('pointermove',event=>tip(event,detail));row.addEventListener('pointerleave',hideTip);row.addEventListener('blur',hideTip);rows.push(row);waterfall.append(row);});
+  // Zones form a suffix hierarchy; CNAME and glueless events start separate resolution branches.
+  const nodes=[{label:'.',parent:-1,level:0,indices:[]}], zones=new Map([['0|.',0]]);let branch=0,branchRoot=0;
+  function zoneNode(zone){zone=string(zone || '.');if(zone!=='.'&&!zone.endsWith('.'))zone+='.';const key=branch+'|'+zone;if(zones.has(key))return zones.get(key);const parts=zone.split('.').filter(Boolean);const parentZone=parts.length>1?parts.slice(1).join('.')+'.':'.';const parent=zone==='.'?branchRoot:zoneNode(parentZone);const index=nodes.length;nodes.push({label:zone,parent,level:nodes[parent].level+1,indices:[]});zones.set(key,index);return index;}
+  const rootsByDepth=new Map([[0,{branch:0,root:0}]]);
+  events.forEach((e,i)=>{
+   const depth=e.depth||0;
+   if(e.kind==='cname'||e.kind==='glueless'){
+    const parent=zoneNode(e.zone || '.');branch++;branchRoot=nodes.length;nodes.push({label:(e.kind==='cname'?'CNAME: ':'Glueless: ')+string(e.detail || e.qname || 'resolution'),parent,level:nodes[parent].level+1,indices:[i]});zones.set(branch+'|.',branchRoot);rootsByDepth.set(e.kind==='glueless'?depth+1:depth,{branch,root:branchRoot});return;
+   }
+   const context=rootsByDepth.get(depth) || rootsByDepth.get(0);branch=context.branch;branchRoot=context.root;
+   const index=zoneNode(e.zone || '.');nodes[index].indices.push(i);
+   if(['answer','nxdomain','nodata'].includes(e.outcome)){nodes.push({label:e.outcome+': '+string(e.qname || question.name || ''),parent:index,level:nodes[index].level+1,indices:[i]});}
+  });
+  const drawing=svg('svg',{width:Math.max(260,...nodes.map(n=>Math.min(n.level,20)*20+Math.min(n.label.length,90)*7+30)),height:nodes.length*38,role:'img','aria-label':'DNS delegation and resolution branches'});
+  // Lay out in preorder so parents and their side branches remain visually grouped.
+  const order=[];function walk(index){order.push(index);nodes.forEach((n,i)=>{if(n.parent===index)walk(i);});}walk(0);const positions=new Map(order.map((n,i)=>[n,i*38+18]));
+  for(const index of order){const n=nodes[index],x=10+Math.min(n.level,20)*20,y=positions.get(index);if(n.parent>=0){const p=nodes[n.parent],px=10+Math.min(p.level,20)*20;drawing.append(svg('path',{d:'M '+px+' '+positions.get(n.parent)+' V '+y+' H '+x}));}const group=svg('g',{tabindex:0,role:'button','aria-label':n.label});group.append(svg('rect',{x,y:y-13,width:Math.min(n.label.length,90)*7+16,height:26,rx:5}),svg('text',{x:x+8,y:y+4},n.label.length>90?n.label.slice(0,87)+'…':n.label),svg('title',{},n.label));const indices=new Set(n.indices);for(const other of nodes){let parent=other.parent;while(parent>=0){if(parent===index){other.indices.forEach(i=>indices.add(i));break;}parent=nodes[parent].parent;}}group.addEventListener('pointerenter',()=>highlight(rows,indices,true));group.addEventListener('pointerleave',()=>highlight(rows,indices,false));group.addEventListener('focus',()=>highlight(rows,indices,true));group.addEventListener('blur',()=>highlight(rows,indices,false));drawing.append(group);}tree.append(drawing);views.append(tree,waterfall);panel.append(views);
+  if(!events.length)waterfall.append(el('p','No events recorded.'));
+  panel.append(el('h3','Answers · '+string(trace.rcode || 'Unknown status')),el('div',Array.isArray(trace.answers)?trace.answers.map(string).join('\n'):'','answers'));
+ }
+ function error(id,err){$(id).replaceChildren(el('p','Could not load trace: '+err.message,'error'));}
+ async function loadFile(id,file){const generation=++generations[id];try{if(!file) return;if(file.size>10*1024*1024)throw Error('File exceeds 10 MB.');const trace=validate(JSON.parse(await file.text()));if(generation!==generations[id])return;states[id]=trace;render(id,trace);}catch(err){if(generation===generations[id])error(id,err);}}
+ function safeURL(path){
+  if(!path || /[\\\x00-\x20\x7f]/.test(path) || path.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(path) || path.includes('#') || path.includes('?'))throw Error('Trace URL must be a relative file path.');
+  let decoded;try{decoded=decodeURIComponent(path);}catch{throw Error('Invalid trace path encoding.');}
+  if(decoded.includes('%') || /[\\\x00-\x20\x7f?#]/.test(decoded) || decoded.startsWith('/') || decoded.split('/').some(part=>part==='..') || /^[a-z][a-z\d+.-]*:/i.test(decoded))throw Error('Unsafe trace path.');
+  const base=new URL('./',location.href),url=new URL(path,base);
+  if(!['http:','https:'].includes(url.protocol)||url.origin!==base.origin||!url.pathname.startsWith(base.pathname)||url.username||url.password)throw Error('Trace fetch must stay within this page’s directory over HTTP(S). Use the file picker for local files.');
+  return url;
+ }
+ for(const [input,id] of [['primary','left'],['secondary','right']]){$(input).addEventListener('change',event=>loadFile(id,event.target.files[0]));const panel=$(id);panel.addEventListener('dragover',event=>{event.preventDefault();panel.classList.add('drag');});panel.addEventListener('dragleave',()=>panel.classList.remove('drag'));panel.addEventListener('drop',event=>{event.preventDefault();panel.classList.remove('drag');loadFile(id,event.dataTransfer.files[0]);});render(id,null);}
+ $('compare').addEventListener('change',event=>{$('panels').classList.toggle('compare',event.target.checked);$('right').classList.toggle('hidden',!event.target.checked);$('secondary-control').classList.toggle('hidden',!event.target.checked);hideTip();});
+ async function start(){const embedded=$('trace');try{if(embedded){states.left=validate(JSON.parse(embedded.textContent));render('left',states.left);return;}const path=new URLSearchParams(location.search).get('trace');if(path!==null){const url=safeURL(path),generation=++generations.left;const response=await fetch(url,{redirect:'error',credentials:'omit',mode:'same-origin'});if(!response.ok)throw Error('HTTP '+response.status);const body=await response.text();if(body.length>10*1024*1024)throw Error('Trace exceeds 10 MB.');const trace=validate(JSON.parse(body));if(generation!==generations.left)return;states.left=trace;render('left',trace);}}catch(err){error('left',err);}}
+ // Run after parsing so generated pages may append their embedded JSON after this script.
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+</body>
+</html>
