@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FerroDNS — root to answer</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.6; }
+    body { max-width: 48rem; margin: auto; padding: 2rem 1.25rem; }
+    a { color: inherit; text-underline-offset: .2em; }
+    nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+    h1 { font-size: clamp(2.5rem, 8vw, 4rem); line-height: 1.1; margin-bottom: 1rem; }
+    .pitch { font-size: 1.25rem; }
+    .pending { border: 1px dashed currentColor; border-radius: .5rem; padding: 1.5rem; }
+    footer { margin-top: 3rem; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav aria-label="Main navigation">
+      <a href="gallery/">Trace gallery</a>
+      <a href="https://github.com/tczartoryski/ferrodns">GitHub repository</a>
+      <a href="https://github.com/tczartoryski/ferrodns/blob/main/docs/real-internet-results.md">Write-up</a>
+    </nav>
+  </header>
+  <main>
+    <h1>FerroDNS</h1>
+    <p class="pitch">A recursive DNS resolver from scratch in Rust — root to answer, standard library only.</p>
+    <p>A recursive resolver turns a domain name into a DNS answer. It follows referrals from root servers through the domain hierarchy, asks the authoritative servers, and caches answers for later lookups.</p>
+    <section aria-labelledby="demo-heading">
+      <h2 id="demo-heading">See a lookup unfold</h2>
+      <div class="pending">
+        <p>The demo GIF will appear here when the project owner supplies it.</p>
+        <p>There is no demo animation available on this page yet.</p>
+      </div>
+    </section>
+    <section aria-labelledby="explore-heading">
+      <h2 id="explore-heading">Explore resolver traces</h2>
+      <p>The gallery will connect real recorded lookups to the trace visualizer.</p>
+      <p><a href="gallery/">Visit the trace gallery</a></p>
+    </section>
+  </main>
+  <footer>FerroDNS is an experimental resolver. See the repository for its capabilities and limitations.</footer>
+</body>
+</html>

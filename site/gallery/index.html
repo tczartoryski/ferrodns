@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trace gallery — FerroDNS</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.6; }
+    body { max-width: 48rem; margin: auto; padding: 2rem 1.25rem; }
+    a { color: inherit; text-underline-offset: .2em; }
+    h1 { font-size: clamp(2rem, 6vw, 3rem); line-height: 1.2; }
+    .pending { border: 1px dashed currentColor; border-radius: .5rem; padding: 1.5rem; }
+    li { margin-bottom: .75rem; }
+    footer { margin-top: 3rem; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <header><nav aria-label="Main navigation"><a href="../">FerroDNS home</a></nav></header>
+  <main>
+    <h1>Trace gallery</h1>
+    <p>Explore real DNS lookups through the resolver's trace visualizer.</p>
+    <div class="pending">
+      <h2>Samples pending</h2>
+      <p>No sample traces are published here yet. The project owner will add recorded traces and visualizer links when they are available.</p>
+    </div>
+    <section aria-labelledby="planned-heading">
+      <h2 id="planned-heading">Planned recordings</h2>
+      <p>These are recording targets, not observed results.</p>
+      <ul>
+        <li><strong>Cold lookup:</strong> <code>www.apple.com</code> with an empty cache.</li>
+        <li><strong>Warm lookup:</strong> the same name after its answer has been cached.</li>
+        <li><strong>Timeout and failover:</strong> a timeout followed by another server, if captured.</li>
+        <li><strong>Glueless delegation:</strong> resolving a nameserver address before continuing.</li>
+        <li><strong>NXDOMAIN:</strong> an authoritative answer that a name does not exist.</li>
+        <li><strong>TCP fallback:</strong> retrying a truncated DNS response over TCP.</li>
+      </ul>
+      <!-- Add links only for owner-supplied recordings, using
+           ../viz/?trace=samples/<actual-file>.json from this gallery. -->
+    </section>
+    <section aria-labelledby="privacy-heading">
+      <h2 id="privacy-heading">Trace privacy</h2>
+      <p>Published samples must contain only public-domain lookups. Remove local-network names, addresses, and other private information before publication.</p>
+    </section>
+  </main>
+  <footer><a href="https://github.com/tczartoryski/ferrodns/blob/main/docs/real-internet-results.md">Read the real-internet write-up</a></footer>
+</body>
+</html>
