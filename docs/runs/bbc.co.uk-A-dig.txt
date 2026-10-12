@@ -12,4 +12,3 @@ bbc.co.uk.		122	IN	A	151.101.128.81
 bbc.co.uk.		122	IN	A	151.101.192.81
 bbc.co.uk.		122	IN	A	151.101.0.81
 bbc.co.uk.		122	IN	A	151.101.64.81
-

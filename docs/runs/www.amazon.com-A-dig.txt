@@ -11,4 +11,3 @@
 www.amazon.com.		1537	IN	CNAME	tp.47cf2c8c9-frontier.amazon.com.
 tp.47cf2c8c9-frontier.amazon.com. 35 IN	CNAME	cf.47cf2c8c9-frontier.amazon.com.
 cf.47cf2c8c9-frontier.amazon.com. 36 IN	A	13.249.70.232
-

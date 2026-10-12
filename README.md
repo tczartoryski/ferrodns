@@ -77,7 +77,7 @@ matters more than identical address ordering or TTL.
 |---|---|---|---:|---:|---:|---|---|
 | example.com | A | NOERROR | 2 | 3 | 177.1 | PASS | Status and public answer checked against dig. |
 | wikipedia.org | A | NOERROR | 1 | 3 | 93.4 | PASS | Status and public answer checked against dig. |
-| github.com | A | NOERROR | 1 | 3 | 86.1 | PASS | Status and public answer checked against dig. |
+| github.com | A | NOERROR | 1 | 3 | 86.1 | PASS | Azure-hosted geo address differed from dig; plausible, not identical. |
 | www.apple.com | A | NOERROR | 4 | 14 | 875.3 | PASS | CNAME/provider or address set checked against dig; CDN TTLs may differ. |
 | www.microsoft.com | A | NOERROR | 3 | 9 | 386.4 | PASS | CNAME/provider or address set checked against dig; CDN TTLs may differ. |
 | www.amazon.com | A | NOERROR | 3 | 8 | 585.6 | PASS | CNAME/provider or address set checked against dig; CDN TTLs may differ. |

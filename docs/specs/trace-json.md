@@ -25,4 +25,3 @@ Schema:
 ```
 - `kind` is one of: `query | cache_hit | cname | glueless`.
 - `outcome` is one of: `answer | cname | referral | nxdomain | nodata | lame | timeout | error`.
-

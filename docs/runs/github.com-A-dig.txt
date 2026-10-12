@@ -9,4 +9,3 @@
 ; EDNS: version: 0, flags:; udp: 512
 ;; ANSWER SECTION:
 github.com.		52	IN	A	20.29.134.23
-

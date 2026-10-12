@@ -16,7 +16,7 @@ This is a simulator portability bug, not an internet-resolution bug.
 |---|---|---|---:|---:|---:|---|---|
 | example.com | A | NOERROR | 2 | 3 | 177.1 | PASS | Status and public answer checked against dig. |
 | wikipedia.org | A | NOERROR | 1 | 3 | 93.4 | PASS | Status and public answer checked against dig. |
-| github.com | A | NOERROR | 1 | 3 | 86.1 | PASS | Status and public answer checked against dig. |
+| github.com | A | NOERROR | 1 | 3 | 86.1 | PASS | Azure-hosted address differed from dig (172.182.252.133 vs 20.29.134.23); plausible geo answer, not identical. |
 | www.apple.com | A | NOERROR | 4 | 14 | 875.3 | PASS | CNAME/provider or address set checked against dig; CDN TTLs may differ. |
 | www.microsoft.com | A | NOERROR | 3 | 9 | 386.4 | PASS | CNAME/provider or address set checked against dig; CDN TTLs may differ. |
 | www.amazon.com | A | NOERROR | 3 | 8 | 585.6 | PASS | CNAME/provider or address set checked against dig; CDN TTLs may differ. |
@@ -46,6 +46,14 @@ All existing poisoning, glueless, failover and server tests now run on macOS.
 Local: 22 unit + 16 integration tests pass; fmt and all-target clippy pass.
 No measured throughput claim is carried forward from the original README.
 The supplied 2-vCPU numbers had no accessible run evidence and were removed.
+
+## Stub-server transport and cache
+
+The already-running resolver on port 55353 answered github.com in 65 ms;
+a repeat one second later took 0 ms at dig’s millisecond granularity, with
+a decremented TTL. A google.com TXT UDP query limited to 512 bytes returned
+TC and no answer records; the TCP retry returned 17 answers without TC.
+[Raw client evidence](runs/server-transport.txt). Port 5353 was left untouched.
 
 ## Preflight
 

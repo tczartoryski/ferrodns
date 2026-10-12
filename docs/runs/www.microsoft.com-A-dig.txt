@@ -11,4 +11,3 @@
 www.microsoft.com.	303	IN	CNAME	www.microsoft.com-c-3.edgekey.net.
 www.microsoft.com-c-3.edgekey.net. 528 IN CNAME	e13678.dscb.akamaiedge.net.
 e13678.dscb.akamaiedge.net. 5	IN	A	23.199.22.71
-

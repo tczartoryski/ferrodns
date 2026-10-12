@@ -1,0 +1,43 @@
+; <<>> DiG 9.10.6 <<>> @127.0.0.1 -p 55353 github.com +noall +answer +stats
+; (1 server found)
+;; global options: +cmd
+github.com.		60	IN	A	172.182.252.133
+;; Query time: 65 msec
+;; SERVER: 127.0.0.1#55353(127.0.0.1)
+;; WHEN: Mon Oct 12 11:01:16 PDT 2026
+;; MSG SIZE  rcvd: 55
+
+
+; <<>> DiG 9.10.6 <<>> @127.0.0.1 -p 55353 github.com +noall +answer +stats
+; (1 server found)
+;; global options: +cmd
+github.com.		59	IN	A	172.182.252.133
+;; Query time: 0 msec
+;; SERVER: 127.0.0.1#55353(127.0.0.1)
+;; WHEN: Mon Oct 12 11:01:17 PDT 2026
+;; MSG SIZE  rcvd: 55
+
+
+; <<>> DiG 9.10.6 <<>> @127.0.0.1 -p 55353 google.com TXT +notcp +ignore +bufsize=512 +noall +comments
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 10164
+;; flags: qr tc rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1232
+
+; <<>> DiG 9.10.6 <<>> @127.0.0.1 -p 55353 google.com TXT +tcp +noall +comments +stats
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 41637
+;; flags: qr rd ra; QUERY: 1, ANSWER: 17, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 1232
+;; Query time: 0 msec
+;; SERVER: 127.0.0.1#55353(127.0.0.1)
+;; WHEN: Mon Oct 12 11:01:19 PDT 2026
+;; MSG SIZE  rcvd: 1187

@@ -18,4 +18,3 @@
   - light and dark mode via `prefers-color-scheme`
   - a monospace face for names and IPs
   - works at laptop width and doesn't break on a phone
-

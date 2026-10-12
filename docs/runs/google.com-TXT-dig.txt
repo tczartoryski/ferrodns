@@ -25,4 +25,3 @@ google.com.		197	IN	TXT	"onetrust-domain-verification=6d685f1d41a94696ad7ef771f6
 google.com.		197	IN	TXT	"_r4rd1pvwyrpi7sw4a3hzmw8e51yh9td"
 google.com.		197	IN	TXT	"Z29vZ2xl"
 google.com.		197	IN	TXT	"v=spf1 include:_spf.google.com ~all"
-

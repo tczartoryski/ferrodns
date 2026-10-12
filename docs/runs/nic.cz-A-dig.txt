@@ -9,4 +9,3 @@
 ; EDNS: version: 0, flags:; udp: 512
 ;; ANSWER SECTION:
 nic.cz.			1800	IN	A	217.31.205.50
-

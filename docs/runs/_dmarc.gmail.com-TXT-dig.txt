@@ -9,4 +9,3 @@
 ; EDNS: version: 0, flags:; udp: 512
 ;; ANSWER SECTION:
 _dmarc.gmail.com.	159	IN	TXT	"v=DMARC1; p=none; sp=quarantine; rua=mailto:mailauth-reports@google.com"
-

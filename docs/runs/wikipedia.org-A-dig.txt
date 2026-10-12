@@ -9,4 +9,3 @@
 ; EDNS: version: 0, flags:; udp: 512
 ;; ANSWER SECTION:
 wikipedia.org.		176	IN	A	198.35.26.224
-

@@ -10,4 +10,3 @@
 ;; ANSWER SECTION:
 www.cloudflare.com.	95	IN	AAAA	2606:4700::6810:7c60
 www.cloudflare.com.	95	IN	AAAA	2606:4700::6810:7b60
-

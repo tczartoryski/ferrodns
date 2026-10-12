@@ -9,4 +9,3 @@
 - **Privacy:** sample traces must contain only public domain lookups. Strip anything from Thomas's local network.
 
 ---
-

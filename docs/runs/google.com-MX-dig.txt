@@ -9,4 +9,3 @@
 ; EDNS: version: 0, flags:; udp: 512
 ;; ANSWER SECTION:
 google.com.		19	IN	MX	10 smtp.google.com.
-

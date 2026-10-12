@@ -10,4 +10,3 @@
 ;; ANSWER SECTION:
 example.com.		35	IN	AAAA	2606:4700:10::6814:179a
 example.com.		35	IN	AAAA	2606:4700:10::ac42:93f3
-
