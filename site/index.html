@@ -29,10 +29,8 @@
     <p>A recursive resolver turns a domain name into a DNS answer. It follows referrals from root servers through the domain hierarchy, asks the authoritative servers, and caches answers for later lookups.</p>
     <section aria-labelledby="demo-heading">
       <h2 id="demo-heading">See a lookup unfold</h2>
-      <div class="pending">
-        <p>A genuine demo GIF is not available: rendered-browser capture is blocked in this environment.</p>
-        <p>There is no demo animation available on this page yet.</p>
-      </div>
+      <img src="assets/demo.gif" alt="Real Apple DNS trace with waterfall tooltip and tree highlight" style="max-width:100%;height:auto;border-radius:.5rem">
+      <p>Six seconds of genuine browser captures: a cold Apple lookup, a waterfall tooltip and a highlighted delegation. <a href="viz/?trace=samples/apple-cold.json">Try it yourself</a>, or open the <a href="viz/embedded/">standalone embedded export</a>.</p>
     </section>
     <section aria-labelledby="explore-heading">
       <h2 id="explore-heading">Explore resolver traces</h2>

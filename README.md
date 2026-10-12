@@ -7,9 +7,11 @@ A recursive DNS resolver from scratch in Rust — root to answer, standard libra
 ![zero dependencies](https://img.shields.io/badge/dependencies-zero-teal)
 ![tested Rust](https://img.shields.io/badge/tested_Rust-1.99.0-orange)
 
-**Private release candidate:** structured traces and the self-contained visualizer
-are implemented. There is no live Pages deployment, rendered-browser proof,
-GIF or release yet; publication gates remain open.
+[**Live demo and gallery**](https://tczartoryski.github.io/ferrodns/) · Experimental release candidate; no tagged release yet.
+
+![Real browser lookup and hover demo](docs/img/demo.gif)
+
+Six-second animation of genuine browser captures, not a terminal recording.
 
 ## What happens when you look up a name
 
@@ -62,13 +64,19 @@ this run tested stable 1.99.0, not the minimum supported version.
 
 ## Visualizer
 
-Open [site/viz/index.html](site/viz/index.html) locally and choose or drop a JSON
-trace. Generated viz pages embed JSON without requiring fetch. Static HTTP(S)
-deployments support relative sample URLs. Waterfall, delegation tree, node-to-row
-highlights and comparison have dependency-free logic tests. Actual browser
-rendering and responsive/light/dark interaction remain unverified: file and
-local static navigation were blocked by browser policy. No fabricated screenshots
-or GIF. See the [gallery](site/gallery/index.html) and [measured trace recordings](docs/trace-recordings.md). The matched Apple pair took 487.240 ms cold (13 upstream exchanges) and 0.057 ms warm (zero).
+Try the [live gallery](https://tczartoryski.github.io/ferrodns/gallery/) or open
+[site/viz/index.html](site/viz/index.html) locally and choose or drop a JSON trace.
+Generated viz pages embed JSON without requiring fetch. All five public gallery
+samples rendered in Chromium; waterfall tooltips, tree-to-row highlighting, file
+pickers and cold/warm comparison were exercised. Desktop light and phone dark
+layouts were checked. See [browser evidence](docs/browser-verification.md).
+The matched Apple pair took 487.240 ms cold (13 upstream exchanges) and 0.057 ms warm (zero).
+
+![Apple cold lookup waterfall](docs/img/waterfall.png)
+![Cold and warm comparison](docs/img/cold-vs-warm.png)
+
+[Measured trace recordings](docs/trace-recordings.md). No real timeout/failover or
+upstream TCP fallback was observed; the TCP gallery example is explicitly simulated.
 
 ## Real-internet results
 
@@ -146,7 +154,7 @@ comparison with other resolvers. [Run and reproducible script](docs/runs/sim-bas
 - IPv4 transport by default; no Happy Eyeballs.
 - One thread per query; no in-flight request coalescing.
 - Cache eviction is not LRU.
-- Planned: structured traces/UI, EDNS fallback, IPv6-only glueless resolution,
+- Planned: EDNS fallback, IPv6-only glueless resolution,
   QNAME minimisation and bounded concurrency.
 
 ## License
