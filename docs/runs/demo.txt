@@ -1,0 +1,106 @@
+Portable simulated internet up on localhost (11 servers).
+
+=== plain delegation chain: root -> com -> example.com
+;; TRACE:
+;;   [.] a.root-servers.net. (127.0.0.10) api.example.com. A -> referral to com. (1 NS, 1 glue)  0.1ms
+;;   [com.] a.gtld-servers.net. (127.0.0.20) api.example.com. A -> referral to example.com. (2 NS, 2 glue)  0.1ms
+;;   [example.com.] ns1.example.com. (127.0.0.30) api.example.com. A -> ANSWER 192.0.2.10, 192.0.2.11  0.1ms
+;; QUESTION: api.example.com. IN A
+;; status: NOERROR
+;; ANSWER:
+api.example.com. 300 IN A 192.0.2.10
+api.example.com. 300 IN A 192.0.2.11
+;; 3 upstream queries, 0.3 ms
+
+=== same question again: served from cache
+;; TRACE:
+;;   cache hit: api.example.com. A -> 2 record(s)
+;; QUESTION: api.example.com. IN A
+;; status: NOERROR
+;; ANSWER:
+api.example.com. 300 IN A 192.0.2.10
+api.example.com. 300 IN A 192.0.2.11
+;; 0 upstream queries, 0.0 ms
+
+=== CNAME into another zone (cdn-provider.net)
+;; TRACE:
+;;   [example.com.] ns1.example.com. (127.0.0.30) www.example.com. A -> CNAME web.cdn-provider.net.  0.1ms
+;;   CNAME www.example.com. -> web.cdn-provider.net.
+;;   [.] a.root-servers.net. (127.0.0.10) web.cdn-provider.net. A -> referral to net. (1 NS, 1 glue)  0.1ms
+;;   [net.] a.gtld-servers.net. (127.0.0.20) web.cdn-provider.net. A -> referral to cdn-provider.net. (1 NS, 1 glue)  0.0ms
+;;   [cdn-provider.net.] ns1.cdn-provider.net. (127.0.0.41) web.cdn-provider.net. A -> ANSWER 198.51.100.7  0.0ms
+;; QUESTION: www.example.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.example.com. 300 IN CNAME web.cdn-provider.net.
+web.cdn-provider.net. 60 IN A 198.51.100.7
+;; 4 upstream queries, 0.2 ms
+
+=== glueless delegation: must resolve the NS name first
+;; TRACE:
+;;   [com.] a.gtld-servers.net. (127.0.0.20) www.glueless.com. A -> referral to glueless.com. (1 NS, 0 glue)  0.0ms
+;;   glueless delegation for glueless.com.: resolving ns.dns-host.net. A
+;;     [net.] a.gtld-servers.net. (127.0.0.20) ns.dns-host.net. A -> referral to dns-host.net. (1 NS, 1 glue)  0.0ms
+;;     [dns-host.net.] ns1.dns-host.net. (127.0.0.40) ns.dns-host.net. A -> ANSWER 127.0.0.35  0.0ms
+;;   [glueless.com.] ns.dns-host.net. (127.0.0.35) www.glueless.com. A -> ANSWER 203.0.113.5  0.0ms
+;; QUESTION: www.glueless.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.glueless.com. 300 IN A 203.0.113.5
+;; 4 upstream queries, 0.2 ms
+
+=== NXDOMAIN, negatively cached via SOA minimum
+;; TRACE:
+;;   [example.com.] ns1.example.com. (127.0.0.30) nope.example.com. A -> NXDOMAIN  0.1ms
+;; QUESTION: nope.example.com. IN A
+;; status: NXDOMAIN
+;; AUTHORITY:
+example.com. 3600 IN SOA ns1.example.com. hostmaster.example.com. 2026101001 7200 900 1209600 300
+;; 1 upstream queries, 0.1 ms
+
+=== response too big for UDP: TC bit, retried over TCP
+;; TRACE:
+;;   [example.com.] ns1.example.com. (127.0.0.30) big.example.com. TXT -> ANSWER "00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…, "01-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…, "02-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…, (+21 more)  0.2ms (TC, retried over TCP)
+;; QUESTION: big.example.com. IN TXT
+;; status: NOERROR
+;; ANSWER:
+big.example.com. 300 IN TXT "00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "01-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "02-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "04-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "05-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "06-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "07-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "08-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "09-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "10-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "11-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "12-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "13-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "14-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "15-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "16-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "17-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "18-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "19-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "20-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "21-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "22-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+big.example.com. 300 IN TXT "23-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+;; 1 upstream queries, 0.2 ms
+
+=== poisoning attempt: ns1.evil.com stuffs 'www.bank.com A 192.0.2.66' into every answer
+;; QUESTION: www.evil.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.evil.com. 300 IN A 192.0.2.77
+;; 2 upstream queries, 0.1 ms
+;; QUESTION: www.bank.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.bank.com. 300 IN A 192.0.2.200
+;; 2 upstream queries, 0.1 ms
+(www.bank.com is 192.0.2.200: the out-of-bailiwick record was ignored)
+
+cache: 24 entries, 1 hits, 9 misses

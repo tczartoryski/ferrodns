@@ -1,0 +1,11 @@
+;; TRACE:
+;;   [.] b.root-servers.net. (170.247.170.2) google.com. MX -> referral to com. (13 NS, 26 glue)  84.0ms
+;;   [com.] m.gtld-servers.net. (192.55.83.30) google.com. MX -> referral to google.com. (4 NS, 8 glue)  81.5ms
+;;   [google.com.] ns2.google.com. (216.239.34.10) google.com. MX -> ANSWER 10 smtp.google.com.  31.2ms
+;; QUESTION: google.com. IN MX
+;; status: NOERROR
+;; ANSWER:
+google.com. 300 IN MX 10 smtp.google.com.
+;; 3 upstream queries, 197.2 ms
+
+exit_code=0

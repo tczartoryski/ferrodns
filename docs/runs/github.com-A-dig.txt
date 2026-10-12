@@ -1,0 +1,12 @@
+
+; <<>> DiG 9.10.6 <<>> github.com A +noall +answer +comments
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 302
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; ANSWER SECTION:
+github.com.		52	IN	A	20.29.134.23
+

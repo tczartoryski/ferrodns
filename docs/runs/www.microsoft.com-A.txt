@@ -1,0 +1,21 @@
+;; TRACE:
+;;   [.] d.root-servers.net. (199.7.91.13) www.microsoft.com. A -> referral to com. (13 NS, 26 glue)  17.2ms
+;;   [com.] j.gtld-servers.net. (192.48.79.30) www.microsoft.com. A -> referral to microsoft.com. (4 NS, 1 glue)  86.5ms
+;;   [microsoft.com.] ns1-39.azure-dns.com. (150.171.10.39) www.microsoft.com. A -> CNAME www.microsoft.com-c-3.edgekey.net.  17.6ms
+;;   CNAME www.microsoft.com. -> www.microsoft.com-c-3.edgekey.net.
+;;   [.] a.root-servers.net. (198.41.0.4) www.microsoft.com-c-3.edgekey.net. A -> referral to net. (13 NS, 26 glue)  31.9ms
+;;   [net.] l.gtld-servers.net. (192.41.162.30) www.microsoft.com-c-3.edgekey.net. A -> referral to edgekey.net. (8 NS, 16 glue)  81.9ms
+;;   [edgekey.net.] a18-65.akam.net. (95.101.36.65) www.microsoft.com-c-3.edgekey.net. A -> CNAME e13678.dscb.akamaiedge.net.  24.0ms
+;;   CNAME www.microsoft.com-c-3.edgekey.net. -> e13678.dscb.akamaiedge.net.
+;;   [net.] b.gtld-servers.net. (192.33.14.30) e13678.dscb.akamaiedge.net. A -> referral to akamaiedge.net. (8 NS, 9 glue)  78.7ms
+;;   [akamaiedge.net.] a28-192.akamaiedge.net. (95.100.173.192) e13678.dscb.akamaiedge.net. A -> referral to dscb.akamaiedge.net. (8 NS, 9 glue)  18.9ms
+;;   [dscb.akamaiedge.net.] n5dscb.akamaiedge.net. (173.222.247.71) e13678.dscb.akamaiedge.net. A -> ANSWER 23.199.22.71  28.4ms
+;; QUESTION: www.microsoft.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.microsoft.com. 3600 IN CNAME www.microsoft.com-c-3.edgekey.net.
+www.microsoft.com-c-3.edgekey.net. 900 IN CNAME e13678.dscb.akamaiedge.net.
+e13678.dscb.akamaiedge.net. 20 IN A 23.199.22.71
+;; 9 upstream queries, 386.4 ms
+
+exit_code=0

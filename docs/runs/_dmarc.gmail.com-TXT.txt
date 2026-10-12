@@ -1,0 +1,12 @@
+;; TRACE:
+;;   [.] i.root-servers.net. (192.36.148.17) _dmarc.gmail.com. TXT -> io: No route to host (os error 65)
+;;   [.] g.root-servers.net. (192.112.36.4) _dmarc.gmail.com. TXT -> referral to com. (13 NS, 26 glue)  62.5ms
+;;   [com.] g.gtld-servers.net. (192.42.93.30) _dmarc.gmail.com. TXT -> referral to gmail.com. (4 NS, 8 glue)  70.8ms
+;;   [gmail.com.] ns1.google.com. (216.239.32.10) _dmarc.gmail.com. TXT -> ANSWER "v=DMARC1; p=none; sp=quarantine; rua=ma…  39.6ms
+;; QUESTION: _dmarc.gmail.com. IN TXT
+;; status: NOERROR
+;; ANSWER:
+_dmarc.gmail.com. 600 IN TXT "v=DMARC1; p=none; sp=quarantine; rua=mailto:mailauth-reports@google.com"
+;; 4 upstream queries, 256.9 ms
+
+exit_code=0

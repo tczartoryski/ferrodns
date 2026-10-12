@@ -1,0 +1,11 @@
+;; TRACE:
+;;   [.] f.root-servers.net. (192.5.5.241) wikipedia.org. A -> referral to org. (6 NS, 12 glue)  28.9ms
+;;   [org.] d0.org.afilias-nst.org. (199.19.57.1) wikipedia.org. A -> referral to wikipedia.org. (3 NS, 6 glue)  32.9ms
+;;   [wikipedia.org.] ns2.wikimedia.org. (198.35.27.27) wikipedia.org. A -> ANSWER 198.35.26.224  31.3ms
+;; QUESTION: wikipedia.org. IN A
+;; status: NOERROR
+;; ANSWER:
+wikipedia.org. 180 IN A 198.35.26.224
+;; 3 upstream queries, 93.4 ms
+
+exit_code=0

@@ -1,0 +1,14 @@
+;; TRACE:
+;;   [.] f.root-servers.net. (192.5.5.241) bbc.co.uk. A -> referral to uk. (8 NS, 16 glue)  20.1ms
+;;   [uk.] dns3.nic.uk. (213.248.220.1) bbc.co.uk. A -> referral to bbc.co.uk. (8 NS, 8 glue)  150.6ms
+;;   [bbc.co.uk.] ddns1.bbc.co.uk. (148.163.199.65) bbc.co.uk. A -> ANSWER 151.101.0.81, 151.101.64.81, 151.101.128.81, (+1 more)  154.8ms
+;; QUESTION: bbc.co.uk. IN A
+;; status: NOERROR
+;; ANSWER:
+bbc.co.uk. 300 IN A 151.101.0.81
+bbc.co.uk. 300 IN A 151.101.64.81
+bbc.co.uk. 300 IN A 151.101.128.81
+bbc.co.uk. 300 IN A 151.101.192.81
+;; 3 upstream queries, 326.0 ms
+
+exit_code=0

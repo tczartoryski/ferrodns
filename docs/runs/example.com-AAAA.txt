@@ -1,0 +1,13 @@
+;; TRACE:
+;;   [.] i.root-servers.net. (192.36.148.17) example.com. AAAA -> io: No route to host (os error 65)
+;;   [.] d.root-servers.net. (199.7.91.13) example.com. AAAA -> referral to com. (13 NS, 26 glue)  13.7ms
+;;   [com.] l.gtld-servers.net. (192.41.162.30) example.com. AAAA -> referral to example.com. (2 NS, 12 glue)  83.0ms
+;;   [example.com.] hera.ns.cloudflare.com. (108.162.192.162) example.com. AAAA -> ANSWER 2606:4700:10::ac42:93f3, 2606:4700:10::6814:179a  20.4ms
+;; QUESTION: example.com. IN AAAA
+;; status: NOERROR
+;; ANSWER:
+example.com. 300 IN AAAA 2606:4700:10::ac42:93f3
+example.com. 300 IN AAAA 2606:4700:10::6814:179a
+;; 4 upstream queries, 194.1 ms
+
+exit_code=0

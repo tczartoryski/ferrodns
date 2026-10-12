@@ -1,0 +1,10 @@
+;; TRACE:
+;;   [.] a.root-servers.net. (198.41.0.4) nic.cz. A -> referral to cz. (4 NS, 8 glue)  40.6ms
+;;   [cz.] b.ns.nic.cz. (194.0.13.1) nic.cz. A -> ANSWER 217.31.205.50  172.8ms
+;; QUESTION: nic.cz. IN A
+;; status: NOERROR
+;; ANSWER:
+nic.cz. 1800 IN A 217.31.205.50
+;; 2 upstream queries, 213.7 ms
+
+exit_code=0

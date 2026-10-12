@@ -1,0 +1,12 @@
+;; TRACE:
+;;   [.] b.root-servers.net. (170.247.170.2) www.cloudflare.com. AAAA -> referral to com. (13 NS, 26 glue)  96.3ms
+;;   [com.] j.gtld-servers.net. (192.48.79.30) www.cloudflare.com. AAAA -> referral to cloudflare.com. (5 NS, 20 glue)  78.4ms
+;;   [cloudflare.com.] ns7.cloudflare.com. (162.159.6.6) www.cloudflare.com. AAAA -> ANSWER 2606:4700::6810:7b60, 2606:4700::6810:7c60  26.2ms
+;; QUESTION: www.cloudflare.com. IN AAAA
+;; status: NOERROR
+;; ANSWER:
+www.cloudflare.com. 300 IN AAAA 2606:4700::6810:7b60
+www.cloudflare.com. 300 IN AAAA 2606:4700::6810:7c60
+;; 3 upstream queries, 201.2 ms
+
+exit_code=0

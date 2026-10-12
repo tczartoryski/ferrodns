@@ -1,0 +1,15 @@
+
+; <<>> DiG 9.10.6 <<>> www.apple.com A +noall +answer +comments
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29675
+;; flags: qr rd ra; QUERY: 1, ANSWER: 4, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; ANSWER SECTION:
+www.apple.com.		55	IN	CNAME	www-apple-com.v.aaplimg.com.
+www-apple-com.v.aaplimg.com. 55	IN	CNAME	www.apple.com.edgekey.net.
+www.apple.com.edgekey.net. 55	IN	CNAME	e6858.dsce9.akamaiedge.net.
+e6858.dsce9.akamaiedge.net. 2	IN	A	23.45.136.241
+

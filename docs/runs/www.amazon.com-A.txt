@@ -1,0 +1,22 @@
+;; TRACE:
+;;   [.] k.root-servers.net. (193.0.14.129) www.amazon.com. A -> referral to com. (13 NS, 26 glue)  323.1ms
+;;   [com.] m.gtld-servers.net. (192.55.83.30) www.amazon.com. A -> referral to amazon.com. (4 NS, 2 glue)  83.4ms
+;;   [amazon.com.] ns-264.awsdns-33.com. (205.251.193.8) www.amazon.com. A -> CNAME tp.47cf2c8c9-frontier.amazon.com.  28.0ms
+;;   CNAME www.amazon.com. -> tp.47cf2c8c9-frontier.amazon.com.
+;;   [amazon.com.] ns-264.awsdns-33.com. (205.251.193.8) tp.47cf2c8c9-frontier.amazon.com. A -> referral to 47cf2c8c9-frontier.amazon.com. (4 NS, 0 glue)  26.9ms
+;;   glueless delegation for 47cf2c8c9-frontier.amazon.com.: resolving ns-1404.awsdns-47.org. A
+;;     [.] h.root-servers.net. (198.97.190.53) ns-1404.awsdns-47.org. A -> referral to org. (6 NS, 12 glue)  39.0ms
+;;     [org.] b2.org.afilias-nst.org. (199.249.120.1) ns-1404.awsdns-47.org. A -> referral to awsdns-47.org. (4 NS, 8 glue)  37.8ms
+;;     [awsdns-47.org.] g-ns-175.awsdns-47.org. (205.251.192.175) ns-1404.awsdns-47.org. A -> ANSWER 205.251.197.124  23.9ms
+;;   [47cf2c8c9-frontier.amazon.com.] ns-1404.awsdns-47.org. (205.251.197.124) tp.47cf2c8c9-frontier.amazon.com. A -> CNAME cf.47cf2c8c9-frontier.amazon.com.  22.7ms
+;;   CNAME tp.47cf2c8c9-frontier.amazon.com. -> cf.47cf2c8c9-frontier.amazon.com.
+;;   cache hit: cf.47cf2c8c9-frontier.amazon.com. A -> 1 record(s)
+;; QUESTION: www.amazon.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.amazon.com. 1800 IN CNAME tp.47cf2c8c9-frontier.amazon.com.
+tp.47cf2c8c9-frontier.amazon.com. 60 IN CNAME cf.47cf2c8c9-frontier.amazon.com.
+cf.47cf2c8c9-frontier.amazon.com. 60 IN A 13.249.70.232
+;; 8 upstream queries, 585.6 ms
+
+exit_code=0

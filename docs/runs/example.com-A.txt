@@ -1,0 +1,12 @@
+;; TRACE:
+;;   [.] b.root-servers.net. (170.247.170.2) example.com. A -> referral to com. (13 NS, 26 glue)  93.5ms
+;;   [com.] g.gtld-servers.net. (192.42.93.30) example.com. A -> referral to example.com. (2 NS, 12 glue)  64.5ms
+;;   [example.com.] elliott.ns.cloudflare.com. (172.64.35.228) example.com. A -> ANSWER 172.66.147.243, 104.20.23.154  18.8ms
+;; QUESTION: example.com. IN A
+;; status: NOERROR
+;; ANSWER:
+example.com. 300 IN A 172.66.147.243
+example.com. 300 IN A 104.20.23.154
+;; 3 upstream queries, 177.1 ms
+
+exit_code=0

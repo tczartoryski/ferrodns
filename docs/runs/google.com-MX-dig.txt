@@ -1,0 +1,12 @@
+
+; <<>> DiG 9.10.6 <<>> google.com MX +noall +answer +comments
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 24930
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 10
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; ANSWER SECTION:
+google.com.		19	IN	MX	10 smtp.google.com.
+

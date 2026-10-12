@@ -1,0 +1,3 @@
+macOS, release build, one serial UDP client, warm api.example.com A
+cold_us=435.6 requests=1000 elapsed_s=0.045421 qps=22016.5 p50_us=37.1 p99_us=72.2
+Client-inclusive baseline, not production capacity or internet performance.

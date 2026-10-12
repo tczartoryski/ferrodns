@@ -1,0 +1,14 @@
+
+; <<>> DiG 9.10.6 <<>> www.microsoft.com A +noall +answer +comments
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29388
+;; flags: qr rd ra; QUERY: 1, ANSWER: 3, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; ANSWER SECTION:
+www.microsoft.com.	303	IN	CNAME	www.microsoft.com-c-3.edgekey.net.
+www.microsoft.com-c-3.edgekey.net. 528 IN CNAME	e13678.dscb.akamaiedge.net.
+e13678.dscb.akamaiedge.net. 5	IN	A	23.199.22.71
+

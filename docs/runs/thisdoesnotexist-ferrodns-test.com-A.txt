@@ -1,0 +1,11 @@
+;; TRACE:
+;;   [.] i.root-servers.net. (192.36.148.17) thisdoesnotexist-ferrodns-test.com. A -> io: No route to host (os error 65)
+;;   [.] g.root-servers.net. (192.112.36.4) thisdoesnotexist-ferrodns-test.com. A -> referral to com. (13 NS, 26 glue)  62.3ms
+;;   [com.] f.gtld-servers.net. (192.35.51.30) thisdoesnotexist-ferrodns-test.com. A -> NXDOMAIN  68.1ms
+;; QUESTION: thisdoesnotexist-ferrodns-test.com. IN A
+;; status: NXDOMAIN
+;; AUTHORITY:
+com. 900 IN SOA a.gtld-servers.net. nstld.verisign-grs.com. 1791828004 1800 900 604800 900
+;; 3 upstream queries, 213.7 ms
+
+exit_code=0

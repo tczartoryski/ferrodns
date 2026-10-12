@@ -1,0 +1,11 @@
+;; TRACE:
+;;   [.] f.root-servers.net. (192.5.5.241) github.com. A -> referral to com. (13 NS, 26 glue)  24.2ms
+;;   [com.] e.gtld-servers.net. (192.12.94.30) github.com. A -> referral to github.com. (8 NS, 2 glue)  35.3ms
+;;   [github.com.] ns-421.awsdns-52.com. (205.251.193.165) github.com. A -> ANSWER 172.182.252.133  26.1ms
+;; QUESTION: github.com. IN A
+;; status: NOERROR
+;; ANSWER:
+github.com. 60 IN A 172.182.252.133
+;; 3 upstream queries, 86.1 ms
+
+exit_code=0

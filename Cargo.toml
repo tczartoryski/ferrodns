@@ -1,0 +1,8 @@
+[package]
+name = "ferrodns"
+version = "0.1.0"
+edition = "2024"
+description = "A recursive DNS resolver from scratch, std only"
+license = "MIT"
+
+[dependencies]

@@ -1,0 +1,12 @@
+
+; <<>> DiG 9.10.6 <<>> _dmarc.gmail.com TXT +noall +answer +comments
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 47064
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; ANSWER SECTION:
+_dmarc.gmail.com.	159	IN	TXT	"v=DMARC1; p=none; sp=quarantine; rua=mailto:mailauth-reports@google.com"
+

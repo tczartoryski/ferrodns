@@ -1,0 +1,29 @@
+;; TRACE:
+;;   [.] i.root-servers.net. (192.36.148.17) www.apple.com. A -> io: No route to host (os error 65)
+;;   [.] k.root-servers.net. (193.0.14.129) www.apple.com. A -> referral to com. (13 NS, 26 glue)  334.8ms
+;;   [com.] e.gtld-servers.net. (192.12.94.30) www.apple.com. A -> referral to apple.com. (4 NS, 8 glue)  46.1ms
+;;   [apple.com.] b.ns.apple.com. (17.253.207.1) www.apple.com. A -> CNAME www-apple-com.v.aaplimg.com.  19.0ms
+;;   CNAME www.apple.com. -> www-apple-com.v.aaplimg.com.
+;;   [com.] h.gtld-servers.net. (192.54.112.30) www-apple-com.v.aaplimg.com. A -> referral to aaplimg.com. (4 NS, 8 glue)  65.3ms
+;;   [aaplimg.com.] d.ns.apple.com. (204.26.57.1) www-apple-com.v.aaplimg.com. A -> referral to v.aaplimg.com. (4 NS, 0 glue)  17.0ms
+;;   glueless delegation for v.aaplimg.com.: resolving v2.gslb.aaplimg.com. A
+;;     [aaplimg.com.] a.ns.apple.com. (17.253.200.1) v2.gslb.aaplimg.com. A -> ANSWER 17.253.206.9  18.6ms
+;;   [v.aaplimg.com.] v2.gslb.aaplimg.com. (17.253.206.9) www-apple-com.v.aaplimg.com. A -> CNAME www.apple.com.edgekey.net.  21.9ms
+;;   CNAME www-apple-com.v.aaplimg.com. -> www.apple.com.edgekey.net.
+;;   [.] j.root-servers.net. (192.58.128.30) www.apple.com.edgekey.net. A -> referral to net. (13 NS, 26 glue)  64.5ms
+;;   [net.] c.gtld-servers.net. (192.26.92.30) www.apple.com.edgekey.net. A -> referral to edgekey.net. (8 NS, 16 glue)  33.3ms
+;;   [edgekey.net.] a7-64.akam.net. (23.61.199.64) www.apple.com.edgekey.net. A -> CNAME e6858.dsce9.akamaiedge.net.  18.1ms
+;;   CNAME www.apple.com.edgekey.net. -> e6858.dsce9.akamaiedge.net.
+;;   [net.] b.gtld-servers.net. (192.33.14.30) e6858.dsce9.akamaiedge.net. A -> referral to akamaiedge.net. (8 NS, 9 glue)  81.9ms
+;;   [akamaiedge.net.] a6-192.akamaiedge.net. (23.211.133.192) e6858.dsce9.akamaiedge.net. A -> referral to dsce9.akamaiedge.net. (8 NS, 9 glue)  53.2ms
+;;   [dsce9.akamaiedge.net.] n7dsce9.akamaiedge.net. (23.216.148.207) e6858.dsce9.akamaiedge.net. A -> ANSWER 23.45.136.241  17.9ms
+;; QUESTION: www.apple.com. IN A
+;; status: NOERROR
+;; ANSWER:
+www.apple.com. 300 IN CNAME www-apple-com.v.aaplimg.com.
+www-apple-com.v.aaplimg.com. 300 IN CNAME www.apple.com.edgekey.net.
+www.apple.com.edgekey.net. 300 IN CNAME e6858.dsce9.akamaiedge.net.
+e6858.dsce9.akamaiedge.net. 20 IN A 23.45.136.241
+;; 14 upstream queries, 875.3 ms
+
+exit_code=0
