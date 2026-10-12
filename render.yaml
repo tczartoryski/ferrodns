@@ -1,0 +1,13 @@
+# Owner-operated deployment only. Keep Pages endpoint null until host proof.
+services:
+  - type: web
+    name: ferrodns-live
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: PORT
+        value: "8080"

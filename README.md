@@ -160,3 +160,13 @@ comparison with other resolvers. [Run and reproducible script](docs/runs/sim-bas
 ## License
 
 [MIT](LICENSE), Copyright (c) 2026 Thomas Czartoryski.
+
+### Experimental live visualizer
+
+The isolated, zero-dependency `cargo run --bin ferrodns-live` service starts
+on loopback HTTP port 8080. It streams recursion over GET fetch/SSE with
+public-only upstream policy, cancellation and bounded work. The visualizer
+retains upload, samples and comparison; its live endpoint stays null until
+remote hosting is verified. It does not validate DNSSEC. See
+[deployment and security limits](docs/live-deployment.md) and
+[verification gates](docs/live-verification.md).

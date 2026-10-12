@@ -4,6 +4,7 @@
 
 use crate::cache::{Cache, CacheConfig, Lookup, Trust};
 use crate::hints::{self, Hint};
+use crate::live_policy::{Control, hostname, public_ip};
 use crate::rng;
 use crate::trace::{self, Event, Trace};
 use crate::transport::{Transport, TransportError};
@@ -12,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -60,6 +62,8 @@ impl Default for Config {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolveError {
     QueryBudgetExhausted,
+    LivePolicy,
+    Interrupted(&'static str),
     DepthExceeded,
     CnameLoop,
     TooManyReferrals,
@@ -70,6 +74,8 @@ pub enum ResolveError {
 impl fmt::Display for ResolveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ResolveError::LivePolicy => write!(f, "public hostname policy rejected target"),
+            ResolveError::Interrupted(e) => write!(f, "{e}"),
             ResolveError::QueryBudgetExhausted => write!(f, "upstream query budget exhausted"),
             ResolveError::DepthExceeded => write!(f, "nameserver resolution nested too deeply"),
             ResolveError::CnameLoop => write!(f, "CNAME loop or chain too long"),
@@ -127,9 +133,37 @@ struct Ctx {
     budget: usize,
     trace: Option<Vec<Event>>,
     start: Instant,
+    control: Option<Control>,
+    sink: Option<Arc<dyn Fn(Event) -> bool + Send + Sync>>,
+    emitted: usize,
 }
 
 impl Ctx {
+    fn check(&self, name: Option<&Name>) -> Result<(), ResolveError> {
+        if let Some(c) = &self.control {
+            c.status().map_err(ResolveError::Interrupted)?;
+            if c.public_only && name.is_some_and(|n| !hostname(&n.to_string())) {
+                return Err(ResolveError::LivePolicy);
+            }
+        }
+        Ok(())
+    }
+    fn emit(&mut self, event: Event) {
+        if let Some(sink) = &self.sink {
+            self.emitted += 1;
+            if (self.emitted > 512 || !sink(event.clone()))
+                && let Some(c) = &self.control
+            {
+                c.cancel();
+            }
+        }
+        if let Some(t) = &mut self.trace {
+            t.push(event);
+        }
+    }
+    fn public(&self) -> bool {
+        self.control.as_ref().is_some_and(|c| c.public_only)
+    }
     fn log(
         &mut self,
         kind: &'static str,
@@ -138,8 +172,8 @@ impl Ctx {
         qtype: RType,
         msg: impl FnOnce() -> String,
     ) {
-        if let Some(t) = self.trace.as_mut() {
-            t.push(Event {
+        if self.trace.is_some() || self.sink.is_some() {
+            self.emit(Event {
                 t_ms: self.start.elapsed().as_secs_f64() * 1000.0,
                 dur_ms: 0.0,
                 depth,
@@ -229,14 +263,44 @@ impl Resolver {
         qtype: RType,
         record: bool,
     ) -> (Result<Resolution, ResolveError>, Trace) {
+        self.resolve_streamed(name, qtype, record, None, None)
+    }
+
+    /// Synchronous incremental delivery. A false sink return cancels further work.
+    pub fn resolve_live(
+        &self,
+        name: &Name,
+        qtype: RType,
+        control: Control,
+        sink: Arc<dyn Fn(Event) -> bool + Send + Sync>,
+    ) -> (Result<Resolution, ResolveError>, Trace) {
+        self.resolve_streamed(name, qtype, false, Some(control), Some(sink))
+    }
+
+    fn resolve_streamed(
+        &self,
+        name: &Name,
+        qtype: RType,
+        record: bool,
+        control: Option<Control>,
+        sink: Option<Arc<dyn Fn(Event) -> bool + Send + Sync>>,
+    ) -> (Result<Resolution, ResolveError>, Trace) {
         self.stats.client_queries.fetch_add(1, Ordering::Relaxed);
         let started_at = trace::timestamp();
         let mut ctx = Ctx {
             budget: self.cfg.max_queries,
             trace: (record || self.cfg.trace_dir.is_some()).then(Vec::new),
             start: Instant::now(),
+            control,
+            sink,
+            emitted: 0,
         };
-        let res = self.resolve_inner(name, qtype, &mut ctx, 0);
+        let res = self
+            .resolve_inner(name, qtype, &mut ctx, 0)
+            .and_then(|result| {
+                ctx.check(None)?;
+                Ok(result)
+            });
         let trace = Trace {
             name: name.to_string(),
             qtype: qtype.to_string(),
@@ -264,10 +328,11 @@ impl Resolver {
         ctx: &mut Ctx,
         depth: usize,
     ) -> Result<Resolution, ResolveError> {
+        ctx.check(Some(name))?;
         let mut answers = Vec::new();
         let mut current = name.clone();
         let mut seen = HashSet::from([name.clone()]);
-        for _ in 0..=self.cfg.max_cname {
+        for cname_count in 0..=self.cfg.max_cname {
             match self.resolve_step(&current, qtype, ctx, depth)? {
                 Step::Answer(recs) => {
                     answers.extend(recs);
@@ -278,6 +343,9 @@ impl Resolver {
                     });
                 }
                 Step::Cname(rec) => {
+                    if ctx.control.is_some() && cname_count >= self.cfg.max_cname {
+                        return Err(ResolveError::CnameLoop);
+                    }
                     let target = rec.target().cloned().expect("CNAME has a target");
                     ctx.log("cname", depth, &current, qtype, || {
                         format!("CNAME {current} -> {target}")
@@ -286,6 +354,7 @@ impl Resolver {
                     if !seen.insert(target.clone()) {
                         return Err(ResolveError::CnameLoop);
                     }
+                    ctx.check(Some(&target))?;
                     current = target;
                 }
                 Step::NxDomain(soa) => {
@@ -340,6 +409,7 @@ impl Resolver {
         ctx: &mut Ctx,
         depth: usize,
     ) -> Result<Step, ResolveError> {
+        ctx.check(Some(name))?;
         if let Some(step) = self.check_cache(name, qtype, ctx, depth) {
             return Ok(step);
         }
@@ -394,6 +464,10 @@ impl Resolver {
         ctx: &mut Ctx,
         depth: usize,
     ) -> Result<Vec<(IpAddr, Name)>, ResolveError> {
+        ctx.check(None)?;
+        if ctx.public() && ns_names.iter().any(|n| !hostname(&n.to_string())) {
+            return Err(ResolveError::LivePolicy);
+        }
         let now = Instant::now();
         let mut out: Vec<(IpAddr, Name)> = Vec::new();
         {
@@ -403,6 +477,9 @@ impl Resolver {
                     out.push((a, ns.clone()));
                 }
             }
+        }
+        if ctx.public() {
+            out.retain(|(ip, _)| public_ip(*ip));
         }
         if out.is_empty() && zone.is_root() {
             out = self
@@ -431,7 +508,9 @@ impl Resolver {
                 match self.resolve_inner(&ns, RType::A, ctx, depth + 1) {
                     Ok(res) => {
                         for r in res.answers {
-                            if let RData::A(ip) = r.data {
+                            if let RData::A(ip) = r.data
+                                && (!ctx.public() || public_ip(IpAddr::V4(ip)))
+                            {
                                 out.push((IpAddr::V4(ip), ns.clone()));
                             }
                         }
@@ -445,6 +524,9 @@ impl Resolver {
                     break;
                 }
             }
+        }
+        if ctx.public() {
+            out.retain(|(ip, _)| public_ip(*ip));
         }
         if out.is_empty() {
             return Err(ResolveError::NoServers(zone.clone()));
@@ -476,9 +558,12 @@ impl Resolver {
         }
     }
 
-    fn record_rtt(&self, addr: IpAddr, sample: Option<Duration>) {
+    fn record_rtt(&self, addr: IpAddr, sample: Option<Duration>, bounded: bool) {
         let mut srtt = self.srtt.lock().unwrap();
         let now = Instant::now();
+        if bounded && srtt.len() >= 1024 && !srtt.contains_key(&addr) {
+            return;
+        }
         let e = srtt.entry(addr).or_insert(Srtt {
             ms: 0.0,
             updated: now,
@@ -504,6 +589,7 @@ impl Resolver {
         depth: usize,
     ) -> Result<Classified, ResolveError> {
         for (addr, nsname) in servers {
+            ctx.check(Some(qname))?;
             if ctx.budget == 0 {
                 return Err(ResolveError::QueryBudgetExhausted);
             }
@@ -517,15 +603,35 @@ impl Resolver {
                 Some(Edns::new(EDNS_UDP_SIZE)),
             );
             let start = Instant::now();
-            match self.transport.exchange(*addr, &q) {
+            if ctx.sink.is_some() {
+                ctx.emit(Event {
+                    t_ms: start.duration_since(ctx.start).as_secs_f64() * 1000.0,
+                    dur_ms: 0.0,
+                    depth,
+                    kind: "query_start",
+                    zone: Some(zone.to_string()),
+                    server: Some(nsname.to_string()),
+                    ip: Some(addr.to_string()),
+                    qname: qname.to_string(),
+                    qtype: qtype.to_string(),
+                    transport: Some("udp"),
+                    outcome: Some("pending"),
+                    detail: "Contacting upstream".into(),
+                });
+                ctx.check(None)?;
+            }
+            match self
+                .transport
+                .exchange_control(*addr, &q, ctx.control.as_ref())
+            {
                 Ok(x) => {
-                    self.record_rtt(*addr, Some(x.rtt));
+                    self.record_rtt(*addr, Some(x.rtt), ctx.public());
                     if x.tcp {
                         self.stats.tcp_fallbacks.fetch_add(1, Ordering::Relaxed);
                     }
                     let c = classify(&x.response, qname, qtype, zone);
-                    if let Some(events) = ctx.trace.as_mut() {
-                        events.push(Event {
+                    if ctx.trace.is_some() || ctx.sink.is_some() {
+                        ctx.emit(Event {
                             t_ms: start.duration_since(ctx.start).as_secs_f64() * 1000.0,
                             dur_ms: x.rtt.as_secs_f64() * 1000.0,
                             depth,
@@ -547,6 +653,7 @@ impl Resolver {
                             detail: describe(&c),
                         });
                     }
+                    ctx.check(None)?;
                     if let Classified::Lame(_) = c {
                         self.stats.upstream_failures.fetch_add(1, Ordering::Relaxed);
                         continue;
@@ -555,10 +662,10 @@ impl Resolver {
                     return Ok(c);
                 }
                 Err(e) => {
-                    self.record_rtt(*addr, None);
+                    self.record_rtt(*addr, None, ctx.public());
                     self.stats.upstream_failures.fetch_add(1, Ordering::Relaxed);
-                    if let Some(events) = ctx.trace.as_mut() {
-                        events.push(Event {
+                    if ctx.trace.is_some() || ctx.sink.is_some() {
+                        ctx.emit(Event {
                             t_ms: start.duration_since(ctx.start).as_secs_f64() * 1000.0,
                             dur_ms: start.elapsed().as_secs_f64() * 1000.0,
                             depth,
@@ -581,6 +688,7 @@ impl Resolver {
                 }
             }
         }
+        ctx.check(None)?;
         Err(ResolveError::AllServersFailed(zone.clone()))
     }
 
@@ -885,5 +993,197 @@ mod tests {
         ));
         let c = classify(&m, &n("www.example.com"), RType::A, &n("example.com"));
         assert!(matches!(c, Classified::Cname(_)));
+    }
+}
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+    use std::sync::mpsc;
+    fn n(s: &str) -> Name {
+        s.parse().unwrap()
+    }
+    fn ctx() -> Ctx {
+        Ctx {
+            budget: 32,
+            trace: None,
+            start: Instant::now(),
+            control: Some(Control::new(true, Duration::from_secs(15))),
+            sink: None,
+            emitted: 0,
+        }
+    }
+    #[test]
+    fn cached_forbidden_cname_is_rejected() {
+        let r = Resolver::new(Config::default());
+        r.cache.lock().unwrap().insert_rrset(
+            vec![Record::new(
+                n("example.com"),
+                300,
+                RData::Cname(n("secret.internal")),
+            )],
+            Trust::AuthAnswer,
+            Instant::now(),
+        );
+        let (result, _) = r.resolve_live(
+            &n("example.com"),
+            RType::A,
+            Control::new(true, Duration::from_secs(1)),
+            Arc::new(|_| true),
+        );
+        assert_eq!(result, Err(ResolveError::LivePolicy));
+        assert_eq!(r.stats.upstream_queries.load(Ordering::Relaxed), 0);
+    }
+    #[test]
+    fn malicious_private_glue_and_glueless_answers_never_become_servers() {
+        let r = Resolver::new(Config::default());
+        let now = Instant::now();
+        let ns = n("ns.evil.com");
+        let zone = n("evil.com");
+        r.cache.lock().unwrap().insert_rrset(
+            vec![Record::new(
+                ns.clone(),
+                300,
+                RData::A("127.0.0.1".parse().unwrap()),
+            )],
+            Trust::Glue,
+            now,
+        );
+        assert!(matches!(
+            r.zone_servers(&zone, std::slice::from_ref(&ns), &mut ctx(), 0),
+            Err(ResolveError::NoServers(_))
+        ));
+        let outside = n("ns.outside.com");
+        r.cache.lock().unwrap().insert_rrset(
+            vec![Record::new(
+                outside.clone(),
+                300,
+                RData::A("10.0.0.1".parse().unwrap()),
+            )],
+            Trust::AuthAnswer,
+            now,
+        );
+        assert!(matches!(
+            r.zone_servers(&zone, &[outside], &mut ctx(), 0),
+            Err(ResolveError::NoServers(_))
+        ));
+        assert_eq!(
+            r.zone_servers(&zone, &[n("ns.internal")], &mut ctx(), 0),
+            Err(ResolveError::LivePolicy)
+        );
+        assert_eq!(r.stats.upstream_queries.load(Ordering::Relaxed), 0);
+    }
+    #[test]
+    fn failed_cached_event_delivery_cannot_report_success() {
+        let r = Resolver::new(Config::default());
+        r.cache.lock().unwrap().insert_rrset(
+            vec![Record::new(
+                n("example.com"),
+                300,
+                RData::A("8.8.8.8".parse().unwrap()),
+            )],
+            Trust::AuthAnswer,
+            Instant::now(),
+        );
+        assert_eq!(
+            r.resolve_live(
+                &n("example.com"),
+                RType::A,
+                Control::new(true, Duration::from_secs(1)),
+                Arc::new(|_| false)
+            )
+            .0,
+            Err(ResolveError::Interrupted("cancelled"))
+        );
+    }
+    #[test]
+    fn final_private_answers_remain_answers() {
+        let r = Resolver::new(Config::default());
+        r.cache.lock().unwrap().insert_rrset(
+            vec![Record::new(
+                n("example.com"),
+                300,
+                RData::A("10.0.0.1".parse().unwrap()),
+            )],
+            Trust::AuthAnswer,
+            Instant::now(),
+        );
+        assert!(
+            r.resolve_live(
+                &n("example.com"),
+                RType::A,
+                Control::new(true, Duration::from_secs(1)),
+                Arc::new(|_| true)
+            )
+            .0
+            .is_ok()
+        );
+    }
+    #[test]
+    fn full_or_disconnected_sink_and_event_ceiling_cancel() {
+        for disconnect in [false, true] {
+            let (tx, rx) = mpsc::sync_channel(1);
+            let _receiver = if disconnect {
+                drop(rx);
+                None
+            } else {
+                tx.try_send(()).unwrap();
+                Some(rx)
+            };
+            let mut c = ctx();
+            c.sink = Some(Arc::new(move |_| tx.try_send(()).is_ok()));
+            c.log("cache_hit", 0, &n("example.com"), RType::A, || {
+                "cached".into()
+            });
+            assert!(c.check(None).is_err());
+        }
+        let mut c = ctx();
+        c.sink = Some(Arc::new(|_| true));
+        for _ in 0..513 {
+            c.log("cache_hit", 0, &n("example.com"), RType::A, || {
+                "cached".into()
+            });
+        }
+        assert!(c.check(None).is_err());
+    }
+    #[test]
+    fn query_start_is_synchronous_and_precedes_transport_gate_and_terminal() {
+        let r = Arc::new(Resolver::new(Config {
+            roots: vec![Hint {
+                name: n("ns.example.com"),
+                addr: "8.8.8.8".parse().unwrap(),
+            }],
+            port: 8053,
+            ..Config::default()
+        }));
+        let (events, rx) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let wait = Mutex::new(wait);
+        let worker = std::thread::spawn(move || {
+            r.resolve_live(
+                &n("example.com"),
+                RType::A,
+                Control::new(true, Duration::from_secs(3)),
+                Arc::new(move |e| {
+                    let start = e.kind == "query_start";
+                    events.send(e).unwrap();
+                    if start {
+                        wait.lock().unwrap().recv().unwrap();
+                    }
+                    true
+                }),
+            )
+        });
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap().kind,
+            "query_start"
+        );
+        assert!(!worker.is_finished());
+        release.send(()).unwrap();
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap().kind,
+            "query"
+        );
+        assert!(worker.join().unwrap().0.is_err());
     }
 }

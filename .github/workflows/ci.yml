@@ -18,3 +18,8 @@ jobs:
       - run: cargo +stable test
       - name: Check visualizer logic (mock DOM, not rendered browser proof)
         run: node scripts/check-viz.cjs site/viz/index.html
+      - name: Check live frontend syntax and security/lifecycle logic
+        run: |
+          node --check site/viz/live.js
+          node --check scripts/check-live-browser.cjs
+          node scripts/check-live.cjs

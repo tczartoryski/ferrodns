@@ -24,6 +24,21 @@ pub struct Event {
 }
 
 impl Event {
+    pub fn to_json(&self) -> String {
+        let json = Trace {
+            name: String::new(),
+            qtype: String::new(),
+            started_at: String::new(),
+            total_ms: 0.0,
+            rcode: String::new(),
+            answers: vec![],
+            events: vec![self.clone()],
+        }
+        .to_json();
+        let start = json.find("\"events\":[").unwrap() + 10;
+        json[start..json.len() - 2].to_string()
+    }
+
     pub fn text(&self) -> String {
         let detail = if self.kind == "query" {
             let via = if self.transport == Some("tcp") {
@@ -64,7 +79,7 @@ pub struct Trace {
 }
 
 // Escaping '<' prevents the HTML parser from recognizing </script> even inside JSON strings.
-fn string(value: &str) -> String {
+pub(crate) fn string(value: &str) -> String {
     let mut out = String::from("\"");
     for c in value.chars() {
         match c {

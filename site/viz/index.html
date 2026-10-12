@@ -9,9 +9,10 @@
 </style>
 </head>
 <body>
-<header><h1>FerroDNS trace visualizer</h1><p>Explore resolver timing and delegation. Open a JSON trace or drop one onto a panel.</p><div class="controls"><label>Primary trace <input id="primary" type="file" accept=".json,application/json"></label><label><input id="compare" type="checkbox"> Compare two traces</label><label id="secondary-control" class="hidden">Comparison trace <input id="secondary" type="file" accept=".json,application/json"></label></div></header>
+<header><h1>FerroDNS trace visualizer</h1><p>Explore resolver timing and delegation. Open a JSON trace or drop one onto a panel.</p><div class="controls"><label>Primary trace <input id="primary" type="file" accept=".json,application/json"></label><label><input id="compare" type="checkbox"> Compare two traces</label><label id="secondary-control" class="hidden">Comparison trace <input id="secondary" type="file" accept=".json,application/json"></label></div><form id="live-form" class="controls"><label>Domain or URL <input id="live-name" type="text" maxlength="2048" placeholder="example.com" autocomplete="off"></label><label>Type <select id="live-type"><option>A</option><option>AAAA</option></select></label><button id="live-resolve" disabled>Resolve live</button><button id="live-cancel" type="button" disabled>Cancel</button><button id="live-retry" type="button" disabled>Retry</button><span id="live-status" role="status" aria-live="polite">Live resolution unavailable: backend is not deployed and verified.</span></form></header>
 <main><div id="panels" class="panels"><section id="left" class="panel" aria-label="Primary trace"></section><section id="right" class="panel hidden" aria-label="Comparison trace"></section></div></main>
 <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+<script src="live.js"></script>
 <script>
 'use strict';
 (() => {
@@ -26,6 +27,8 @@
  function validate(raw){
   if(!raw || typeof raw!=='object' || !Array.isArray(raw.events))throw Error('Trace must contain an events array.');
   if(raw.events.length>10000)throw Error('Trace exceeds the 10,000 event limit.');
+  for(const item of [raw,raw.question,...raw.events])if(item&&typeof item==='object')for(const value of Object.values(item))if(typeof value==='string'&&value.length>2048)throw Error('Trace string exceeds 2,048 characters.');
+  if(Array.isArray(raw.answers)&&(raw.answers.length>10000||raw.answers.some(s=>typeof s!=='string'||s.length>2048)))throw Error('Invalid trace answers.');
   for(const [i,e] of raw.events.entries()){
    if(!e || typeof e!=='object')throw Error('Invalid event '+i+'.');
    for(const key of ['t_ms','dur_ms','depth'])if(e[key]!==undefined && (typeof e[key]!=='number'||!Number.isFinite(e[key])||e[key]<0))throw Error('Invalid '+key+' in event '+i+'.');
@@ -52,7 +55,7 @@
   const views=el('div',undefined,'views'), tree=el('div',undefined,'tree'), waterfall=el('div',undefined,'waterfall');tree.append(el('h3','Delegation tree'));waterfall.append(el('h3','Waterfall'));
   const axis=el('div',undefined,'row');axis.append(el('span','Zone → server (IP)','label'));const ticks=el('div',undefined,'axis');for(const fraction of [0,.25,.5,.75,1])ticks.append(el('span',(total*fraction).toFixed(1)+' ms'));axis.append(ticks);waterfall.append(axis);
   const rows=[];
-  events.forEach((e,i)=>{const row=el('div',undefined,'row');row.tabIndex=0;const label=el('span',string(e.zone || e.qname || '.')+' → '+string(e.server || e.kind || 'event')+(e.ip?' ('+string(e.ip)+')':''),'label');label.style.paddingLeft=(7+Math.min(e.depth||0,20)*12)+'px';const track=el('div',undefined,'track'),bar=el('div',undefined,'bar');bar.style.left=((e.t_ms||0)/scale*100)+'%';bar.style.width=((e.dur_ms||0)/scale*100)+'%';bar.style.background=colors[outcome(e)] || 'var(--muted)';track.append(bar);row.append(label,track);const detail=[e.detail, 'Start: '+(e.t_ms||0)+' ms · Duration: '+(e.dur_ms||0)+' ms',outcome(e),e.transport].filter(Boolean).map(string).join('\n');row.title=detail;row.addEventListener('pointermove',event=>tip(event,detail));row.addEventListener('pointerleave',hideTip);row.addEventListener('blur',hideTip);rows.push(row);waterfall.append(row);});
+  events.forEach((e,i)=>{const row=el('div',undefined,'row');if(e.kind==='query_start'&&trace.rcode==='PENDING')row.classList.add('active');row.tabIndex=0;const label=el('span',string(e.zone || e.qname || '.')+' → '+string(e.server || e.kind || 'event')+(e.ip?' ('+string(e.ip)+')':''),'label');label.style.paddingLeft=(7+Math.min(e.depth||0,20)*12)+'px';const track=el('div',undefined,'track'),bar=el('div',undefined,'bar');bar.style.left=((e.t_ms||0)/scale*100)+'%';bar.style.width=((e.dur_ms||0)/scale*100)+'%';bar.style.background=colors[outcome(e)] || 'var(--muted)';track.append(bar);row.append(label,track);const detail=[e.detail, 'Start: '+(e.t_ms||0)+' ms · Duration: '+(e.dur_ms||0)+' ms',outcome(e),e.transport].filter(Boolean).map(string).join('\n');row.title=detail;row.addEventListener('pointermove',event=>tip(event,detail));row.addEventListener('pointerleave',hideTip);row.addEventListener('blur',hideTip);rows.push(row);waterfall.append(row);});
   // Zones form a suffix hierarchy; CNAME and glueless events start separate resolution branches.
   const nodes=[{label:'.',parent:-1,level:0,indices:[]}], zones=new Map([['0|.',0]]);let branch=0,branchRoot=0;
   function zoneNode(zone){zone=string(zone || '.');if(zone!=='.'&&!zone.endsWith('.'))zone+='.';const key=branch+'|'+zone;if(zones.has(key))return zones.get(key);const parts=zone.split('.').filter(Boolean);const parentZone=parts.length>1?parts.slice(1).join('.')+'.':'.';const parent=zone==='.'?branchRoot:zoneNode(parentZone);const index=nodes.length;nodes.push({label:zone,parent,level:nodes[parent].level+1,indices:[]});zones.set(key,index);return index;}
@@ -74,7 +77,7 @@
   panel.append(el('h3','Answers · '+string(trace.rcode || 'Unknown status')),el('div',Array.isArray(trace.answers)?trace.answers.map(string).join('\n'):'','answers'));
  }
  function error(id,err){$(id).replaceChildren(el('p','Could not load trace: '+err.message,'error'));}
- async function loadFile(id,file){const generation=++generations[id];try{if(!file) return;if(file.size>10*1024*1024)throw Error('File exceeds 10 MB.');const trace=validate(JSON.parse(await file.text()));if(generation!==generations[id])return;states[id]=trace;render(id,trace);}catch(err){if(generation===generations[id])error(id,err);}}
+ async function loadFile(id,file){if(window.FerroLive?.active)window.FerroLive.cancel('Live request cancelled for file loading.');const generation=++generations[id];try{if(!file) return;if(file.size>10*1024*1024)throw Error('File exceeds 10 MB.');const trace=validate(JSON.parse(await file.text()));if(generation!==generations[id])return;states[id]=trace;render(id,trace);}catch(err){if(generation===generations[id])error(id,err);}}
  function safeURL(path){
   if(!path || /[\\\x00-\x20\x7f]/.test(path) || path.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(path) || path.includes('#') || path.includes('?'))throw Error('Trace URL must be a relative file path.');
   let decoded;try{decoded=decodeURIComponent(path);}catch{throw Error('Invalid trace path encoding.');}
@@ -85,7 +88,8 @@
  }
  for(const [input,id] of [['primary','left'],['secondary','right']]){$(input).addEventListener('change',event=>loadFile(id,event.target.files[0]));const panel=$(id);panel.addEventListener('dragover',event=>{event.preventDefault();panel.classList.add('drag');});panel.addEventListener('dragleave',()=>panel.classList.remove('drag'));panel.addEventListener('drop',event=>{event.preventDefault();panel.classList.remove('drag');loadFile(id,event.dataTransfer.files[0]);});render(id,null);}
  $('compare').addEventListener('change',event=>{$('panels').classList.toggle('compare',event.target.checked);$('right').classList.toggle('hidden',!event.target.checked);$('secondary-control').classList.toggle('hidden',!event.target.checked);hideTip();});
- async function start(){const embedded=$('trace');try{if(embedded){states.left=validate(JSON.parse(embedded.textContent));render('left',states.left);return;}const path=new URLSearchParams(location.search).get('trace');if(path!==null){const url=safeURL(path),generation=++generations.left;const response=await fetch(url,{redirect:'error',credentials:'omit',mode:'same-origin'});if(!response.ok)throw Error('HTTP '+response.status);const body=await response.text();if(body.length>10*1024*1024)throw Error('Trace exceeds 10 MB.');const trace=validate(JSON.parse(body));if(generation!==generations.left)return;states.left=trace;render('left',trace);}}catch(err){error('left',err);}}
+ async function start(){const embedded=$('trace');let generation=generations.left;try{if(embedded){states.left=validate(JSON.parse(embedded.textContent));render('left',states.left);return;}const path=new URLSearchParams(location.search).get('trace');if(path!==null){const url=safeURL(path);generation=++generations.left;const response=await fetch(url,{redirect:'error',credentials:'omit',mode:'same-origin'});if(!response.ok)throw Error('HTTP '+response.status);const body=await response.text();if(body.length>10*1024*1024)throw Error('Trace exceeds 10 MB.');const trace=validate(JSON.parse(body));if(generation!==generations.left)return;states.left=trace;render('left',trace);}}catch(err){if(generation===generations.left)error('left',err);}}
+ if(window.FerroLiveInit)window.FerroLiveInit({render,states,generations,validate});
  // Run after parsing so generated pages may append their embedded JSON after this script.
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
