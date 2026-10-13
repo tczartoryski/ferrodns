@@ -7,7 +7,7 @@ A recursive DNS resolver from scratch in Rust — root to answer, standard libra
 ![zero dependencies](https://img.shields.io/badge/dependencies-zero-teal)
 ![tested Rust](https://img.shields.io/badge/tested_Rust-1.99.0-orange)
 
-[**Live demo and gallery**](https://tczartoryski.github.io/ferrodns/) · Experimental release candidate; no tagged release yet.
+[**Live demo and gallery**](https://tczartoryski.github.io/ferrodns/) · [v0.2.0](https://github.com/tczartoryski/ferrodns/releases/tag/v0.2.0) · Experimental; not a production resolver.
 
 ![Real browser lookup and hover demo](docs/img/demo.gif)
 
