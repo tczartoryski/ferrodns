@@ -38,6 +38,7 @@ async function lifecycle(){
  const records=[];await consume(response(started+': heartbeat\n\n'+query+done),new AbortController().signal,(n,r)=>records.push([n,r]));assert.deepEqual(records.map(r=>r[0]),['started','trace','done']);
  for(const text of [started+query,query+done,started+started,started+frame('trace',{kind:'evil'}),started+'event: trace\ndata: '+ 'x'.repeat(65537)+'\n\n',started+frame('done',{answers:['x'.repeat(2049)]}),started+query.repeat(513)+done])await assert.rejects(consume(response(text,1024),new AbortController().signal,()=>{}));
  const c=new AbortController();c.abort();await assert.rejects(consume(response(started+done),c.signal,()=>{}));
- await lifecycle();assert.equal(JSON.parse(fs.readFileSync('site/viz/live-config.json','utf8')).endpoint,null);
+ await lifecycle();const endpoint=JSON.parse(fs.readFileSync('site/viz/live-config.json','utf8')).endpoint;
+ if(endpoint!==null){const url=new URL(endpoint);assert.equal(url.protocol,'https:');assert.equal(url.pathname,'/');assert(!url.username&&!url.password&&!url.search&&!url.hash,'Published endpoint must be credential-free HTTPS origin');}
  console.log('PASS: live hostname/URL policy, fragmented SSE, bounds/order/terminal/interruption, cancellation, lifecycle races, manual retry, null config (mock DOM)');
 })().catch(e=>{console.error(e);process.exitCode=1});

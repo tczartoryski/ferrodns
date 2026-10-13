@@ -109,3 +109,35 @@ allowance; health probes no longer consume it. Conservative public IPv6
 policy may reject otherwise usable special-purpose nameservers. Cold
 starts exceed the browser timeout; retry is manual. DNSSEC is not validated.
 Endpoint configuration remains null.
+
+## Render host verification — 2026-10-12
+
+Protected Render API access verified deployed revision
+`3cacdcc5b353a5ed6011eeb34f1a09dc5de20f1b`, Free service
+`https://ferrodns.onrender.com`. Temporary diagnostic deploy
+`dep-db6nh32d0e5s73b07q30` independently returned root referrals with
+NOERROR over UDP and TCP to `198.41.0.4:53` at
+2026-10-13T00:17:43Z and 00:17:44Z. Original Dockerfile and main branch
+restored and revision confirmed live in deploy `dep-db6nhim7bikc73am0ubg`.
+The remote diagnostic branch was removed. Automatic deploys are disabled;
+Free compute plan unchanged. Evidence saved locally at
+`/tmp/ferrodns-render-host-proof.json`.
+
+Real HTTPS Pages-to-Render browser fetch (temporary tab-only endpoint
+configuration before publication) rendered example.com pending DOM at
+133.7ms and successful terminal DOM at 181.6ms, with matching A answers
+and no horizontal overflow. This used direct cross-origin streaming,
+not the loopback relay or mocked DNS. Earlier remote checks also verified
+A/AAAA, CNAME, private-target rejection and allowed-Origin enforcement.
+
+At 390px, www.apple.com pending DOM appeared at 110.0ms and terminal
+DOM at 263.3ms, with the expected three CNAME hops and no horizontal
+overflow. Independent local dig matched example.com A answers and the
+Apple CNAME chain (final CDN address varies by vantage as expected).
+
+A third direct HTTPS lookup was cancelled after the first pending query
+row appeared. The browser displayed Cancelled, released the active request,
+and made exactly one resolve fetch with no automatic reconnect observed
+after eight seconds. Published configuration now targets the verified
+HTTPS service. Null-configuration disabled-mode lifecycle tests remain,
+while the publication check accepts a credential-free HTTPS origin.
