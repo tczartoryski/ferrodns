@@ -163,10 +163,20 @@ comparison with other resolvers. [Run and reproducible script](docs/runs/sim-bas
 
 ### Experimental live visualizer
 
-The isolated, zero-dependency `cargo run --bin ferrodns-live` service starts
-on loopback HTTP port 8080. It streams recursion over GET fetch/SSE with
-public-only upstream policy, cancellation and bounded work. The visualizer
-retains upload, samples and comparison; its live endpoint stays null until
-remote hosting is verified. It does not validate DNSSEC. See
+Try [live DNS lookup](https://tczartoryski.github.io/ferrodns/viz/): enter a
+public domain or URL, choose **A** or **AAAA**, and click **Resolve live**.
+The delegation tree and timing waterfall update as real recursive queries
+run, followed by the answers. **Cancel** stops a lookup; **Retry** starts a
+new attempt explicitly. Uploads, samples and trace comparison remain available.
+
+The hosted backend is enabled on Render's Free plan. After an idle period,
+it may take about a minute to wake up; if the first attempt times out, wait
+and click **Retry**. Lookups are bounded and rate-limited, and only public
+upstream DNS servers are allowed.
+
+For local hosting, the isolated, zero-dependency
+`cargo run --bin ferrodns-live` service starts on loopback HTTP port 8080.
+It streams recursion over GET fetch/SSE with cancellation and bounded work.
+It does not validate DNSSEC and is not a production resolver. See
 [deployment and security limits](docs/live-deployment.md) and
 [verification gates](docs/live-verification.md).
